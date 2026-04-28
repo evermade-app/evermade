@@ -1,0 +1,208 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 230" fill="none">
+  <defs>
+    <!-- Suit — warm white with subtle blue-grey shadow -->
+    <radialGradient id="suit" cx="36%" cy="30%" r="64%">
+      <stop offset="0%"   stop-color="#ffffff"/>
+      <stop offset="55%"  stop-color="#e8ecf6"/>
+      <stop offset="100%" stop-color="#bec8da"/>
+    </radialGradient>
+
+    <!-- Helmet shell -->
+    <radialGradient id="helm" cx="34%" cy="28%" r="60%">
+      <stop offset="0%"   stop-color="#f4f6ff"/>
+      <stop offset="100%" stop-color="#c0cada"/>
+    </radialGradient>
+
+    <!-- Visor — deep reflective blue-black -->
+    <linearGradient id="visor" x1="15%" y1="10%" x2="88%" y2="92%">
+      <stop offset="0%"   stop-color="#1e4a90"/>
+      <stop offset="38%"  stop-color="#0c1e46"/>
+      <stop offset="100%" stop-color="#050c1e"/>
+    </linearGradient>
+
+    <!-- Visor inner reflection pool -->
+    <radialGradient id="vrefl" cx="28%" cy="28%" r="55%">
+      <stop offset="0%"   stop-color="#4488ee" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#4488ee" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Backpack -->
+    <linearGradient id="pack" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#c2cad8"/>
+      <stop offset="100%" stop-color="#8c98ac"/>
+    </linearGradient>
+
+    <!-- Boot / glove dark material -->
+    <linearGradient id="boot" x1="0%" y1="0%" x2="80%" y2="100%">
+      <stop offset="0%"   stop-color="#6a7284"/>
+      <stop offset="100%" stop-color="#3e4858"/>
+    </linearGradient>
+
+    <!-- Drop shadow on whole character -->
+    <filter id="shadow" x="-12%" y="-12%" width="124%" height="124%">
+      <feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#000000" flood-opacity="0.38"/>
+    </filter>
+  </defs>
+
+  <g filter="url(#shadow)">
+
+    <!-- ══════════════════════════════════════
+         BACKPACK  (behind torso, drawn first)
+         ══════════════════════════════════════ -->
+    <rect x="136" y="108" width="32" height="46" rx="6"
+          fill="url(#pack)" stroke="#8896ac" stroke-width="1.2"/>
+    <!-- Pack grille lines -->
+    <line x1="143" y1="116" x2="161" y2="116" stroke="#6a7890" stroke-width="0.9"/>
+    <line x1="143" y1="122" x2="161" y2="122" stroke="#6a7890" stroke-width="0.9"/>
+    <line x1="143" y1="128" x2="161" y2="128" stroke="#6a7890" stroke-width="0.9"/>
+    <line x1="143" y1="134" x2="161" y2="134" stroke="#6a7890" stroke-width="0.9"/>
+    <!-- Pack status light -->
+    <circle cx="156" cy="142" r="3" fill="#44dd88"/>
+    <!-- Oxygen umbilical tubes -->
+    <path d="M142 154 C138 164 130 168 122 165"
+          stroke="#909aaa" stroke-width="3" stroke-linecap="round" fill="none"/>
+    <path d="M150 154 C146 166 138 172 130 168"
+          stroke="#909aaa" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+
+    <!-- ══════════════════════════════════════
+         LEFT LEG — lower, bent
+         ══════════════════════════════════════ -->
+    <!-- Thigh -->
+    <path d="M96 160 Q86 176 76 190"
+          stroke="url(#suit)" stroke-width="20" stroke-linecap="round" fill="none"/>
+    <!-- Knee ring accent -->
+    <ellipse cx="86" cy="175" rx="10" ry="6" fill="#d4dcea" stroke="#aab4c4" stroke-width="1"
+             transform="rotate(-30 86 175)"/>
+    <!-- Red knee stripe -->
+    <path d="M90 170 Q83 178 78 186"
+          stroke="#cc2e40" stroke-width="4" stroke-linecap="round" fill="none"/>
+    <!-- Left boot -->
+    <ellipse cx="70" cy="195" rx="18" ry="11" fill="url(#boot)"
+             transform="rotate(-18 70 195)"/>
+    <ellipse cx="66" cy="191" rx="12" ry="7" fill="#7e8a9c"
+             transform="rotate(-18 66 191)"/>
+    <!-- Boot sole line -->
+    <path d="M56 196 Q68 204 84 197"
+          stroke="#2e3848" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+
+    <!-- ══════════════════════════════════════
+         TORSO
+         ══════════════════════════════════════ -->
+    <ellipse cx="106" cy="134" rx="32" ry="42" fill="url(#suit)" stroke="#ccd4e2" stroke-width="1.5"
+             transform="rotate(-22 106 134)"/>
+
+    <!-- Chest badge / NASA flag -->
+    <g transform="rotate(-22 97 120)">
+      <rect x="86" y="115" width="24" height="12" rx="2.5"
+            fill="#dce4f0" stroke="#b4bece" stroke-width="0.8"/>
+      <!-- Red stripe -->
+      <rect x="86" y="115" width="24" height="4" rx="2.5" fill="#c43040"/>
+      <!-- Blue field -->
+      <rect x="86" y="119" width="9" height="8" fill="#2248a4" rx="0"/>
+      <!-- White stars suggestion -->
+      <circle cx="89" cy="121" r="0.8" fill="white"/>
+      <circle cx="92" cy="121" r="0.8" fill="white"/>
+      <circle cx="89" cy="124" r="0.8" fill="white"/>
+      <circle cx="92" cy="124" r="0.8" fill="white"/>
+    </g>
+
+    <!-- Suit seam stitching -->
+    <path d="M80 114 Q82 135 86 158" stroke="#c0cad8" stroke-width="0.9" fill="none" opacity="0.7"/>
+    <path d="M130 116 Q128 138 124 160" stroke="#c0cad8" stroke-width="0.9" fill="none" opacity="0.7"/>
+
+    <!-- ══════════════════════════════════════
+         RIGHT LEG — raised high / prominent
+         ══════════════════════════════════════ -->
+    <!-- Thigh (large, upper right) -->
+    <path d="M128 112 Q152 84 172 58"
+          stroke="url(#suit)" stroke-width="24" stroke-linecap="round" fill="none"/>
+    <!-- Knee ring -->
+    <ellipse cx="150" cy="86" rx="12" ry="8" fill="#d4dcea" stroke="#aab4c4" stroke-width="1"
+             transform="rotate(-42 150 86)"/>
+    <!-- Red knee stripe -->
+    <path d="M140 96 Q150 82 160 68"
+          stroke="#cc2e40" stroke-width="4.5" stroke-linecap="round" fill="none"/>
+    <!-- Right boot (prominent) -->
+    <ellipse cx="177" cy="50" rx="22" ry="13" fill="url(#boot)"
+             transform="rotate(-48 177 50)"/>
+    <ellipse cx="174" cy="46" rx="14" ry="8" fill="#7e8a9c"
+             transform="rotate(-48 174 46)"/>
+    <!-- Boot sole -->
+    <path d="M166 58 Q176 65 190 56"
+          stroke="#2e3848" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+    <!-- Boot lace/grip detail -->
+    <path d="M170 52 Q174 56 180 52"
+          stroke="#5a6474" stroke-width="1" stroke-linecap="round" fill="none"/>
+
+    <!-- ══════════════════════════════════════
+         LEFT ARM — extended out-left
+         ══════════════════════════════════════ -->
+    <path d="M82 106 Q64 90 46 74"
+          stroke="url(#suit)" stroke-width="18" stroke-linecap="round" fill="none"/>
+    <!-- Red arm stripe -->
+    <path d="M74 100 Q60 88 50 77"
+          stroke="#cc2e40" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+    <!-- Wrist ring -->
+    <ellipse cx="48" cy="75" rx="9" ry="6" fill="#d4dcea" stroke="#aab4c4" stroke-width="1"
+             transform="rotate(-40 48 75)"/>
+    <!-- Left glove -->
+    <ellipse cx="40" cy="69" rx="13" ry="10" fill="url(#boot)"
+             transform="rotate(-38 40 69)"/>
+    <!-- Finger stubs -->
+    <path d="M33 64 Q30 59 34 56" stroke="#5a6474" stroke-width="2" stroke-linecap="round" fill="none"/>
+    <path d="M30 68 Q26 64 30 61" stroke="#5a6474" stroke-width="2" stroke-linecap="round" fill="none"/>
+
+    <!-- ══════════════════════════════════════
+         RIGHT ARM — raised up
+         ══════════════════════════════════════ -->
+    <path d="M120 96 Q134 70 146 44"
+          stroke="url(#suit)" stroke-width="18" stroke-linecap="round" fill="none"/>
+    <!-- Red arm stripe -->
+    <path d="M126 84 Q136 64 144 46"
+          stroke="#cc2e40" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+    <!-- Wrist ring -->
+    <ellipse cx="147" cy="46" rx="9" ry="6" fill="#d4dcea" stroke="#aab4c4" stroke-width="1"
+             transform="rotate(-65 147 46)"/>
+    <!-- Right glove (open hand, reaching) -->
+    <ellipse cx="150" cy="38" rx="13" ry="10" fill="url(#boot)"
+             transform="rotate(-60 150 38)"/>
+    <!-- Finger stubs — open hand -->
+    <path d="M156 30 Q160 26 157 22" stroke="#5a6474" stroke-width="2" stroke-linecap="round" fill="none"/>
+    <path d="M160 35 Q165 32 163 27" stroke="#5a6474" stroke-width="2" stroke-linecap="round" fill="none"/>
+    <path d="M160 40 Q166 38 165 33" stroke="#5a6474" stroke-width="1.5" stroke-linecap="round" fill="none"/>
+
+    <!-- ══════════════════════════════════════
+         HELMET
+         ══════════════════════════════════════ -->
+    <!-- Outer shell -->
+    <circle cx="83" cy="82" r="33" fill="url(#helm)" stroke="#c0cada" stroke-width="2"/>
+
+    <!-- Helmet collar (connects to body) -->
+    <ellipse cx="83" cy="112" rx="26" ry="7" fill="#cdd5e2" stroke="#aab4c4" stroke-width="1.5"/>
+
+    <!-- VISOR -->
+    <ellipse cx="86" cy="79" rx="20" ry="18" fill="url(#visor)" stroke="#102040" stroke-width="1.8"/>
+    <!-- Reflection glow pool -->
+    <ellipse cx="80" cy="73" rx="10" ry="9" fill="url(#vrefl)"/>
+    <!-- Sharp highlight arc -->
+    <path d="M72 72 Q77 65 86 68"
+          stroke="rgba(255,255,255,0.62)" stroke-width="2" stroke-linecap="round" fill="none"/>
+    <!-- Secondary small highlight -->
+    <ellipse cx="92" cy="85" rx="3" ry="2.5" fill="rgba(255,255,255,0.22)" transform="rotate(-30 92 85)"/>
+
+    <!-- Helmet specular highlight (top-left dome shine) -->
+    <ellipse cx="68" cy="66" rx="11" ry="9" fill="rgba(255,255,255,0.28)" transform="rotate(-18 68 66)"/>
+
+    <!-- Helmet top antenna nub -->
+    <rect x="80" y="50" width="6" height="10" rx="3" fill="#c0cada" stroke="#a0aabc" stroke-width="1"/>
+
+    <!-- ══════════════════════════════════════
+         SHOULDER JOINT RINGS
+         ══════════════════════════════════════ -->
+    <ellipse cx="82" cy="108" rx="9" ry="5.5" fill="#ccd4e0" stroke="#a4aec0" stroke-width="1.2"
+             transform="rotate(-22 82 108)"/>
+    <ellipse cx="120" cy="100" rx="9" ry="5.5" fill="#ccd4e0" stroke="#a4aec0" stroke-width="1.2"
+             transform="rotate(-22 120 100)"/>
+
+  </g>
+</svg>
