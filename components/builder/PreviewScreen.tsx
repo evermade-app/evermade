@@ -289,16 +289,27 @@ function GenericScreenRenderer({ screenId, primaryColor, primaryRgb }: { screenI
   );
 }
 
-// ── Sleek preview — renders actual Sleek HTML in an iframe ───────────────────
+// ── Sleek preview — renders GPT-4o HTML screens in an iframe ─────────────────
 function SleekPreview() {
   const { sleekApp, setSleekActiveIndex, setSleekApp } = useEditor();
-  if (!sleekApp) return null;
 
+  // Listen for postMessage navigation from inside the iframe
+  React.useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      if (e.data?.type === "sleek-navigate" && typeof e.data.screenIndex === "number") {
+        setSleekActiveIndex(e.data.screenIndex);
+      }
+    }
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [setSleekActiveIndex]);
+
+  if (!sleekApp) return null;
   const active = sleekApp.screens[sleekApp.activeIndex];
 
   return (
     <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", background: "#080818", position: "relative" }}>
-      {/* iframe fills the phone screen */}
+      {/* iframe — fills the phone body */}
       {active && (
         <iframe
           key={active.id}
@@ -309,7 +320,7 @@ function SleekPreview() {
         />
       )}
 
-      {/* Screen tab strip — pinned at bottom */}
+      {/* Screen tab strip pinned at bottom of phone */}
       <div style={{
         display: "flex", overflowX: "auto", gap: 4, padding: "5px 6px",
         background: "rgba(8,8,24,0.97)", borderTop: "1px solid rgba(255,255,255,0.07)",
@@ -333,8 +344,8 @@ function SleekPreview() {
         <button
           onClick={() => setSleekApp(null)}
           style={{
-            flexShrink: 0, marginLeft: "auto", padding: "3px 8px", borderRadius: 6,
-            border: "1px solid rgba(255,255,255,0.1)", background: "none",
+            flexShrink: 0, marginLeft: "auto", padding: "3px 8px",
+            borderRadius: 6, border: "1px solid rgba(255,255,255,0.1)", background: "none",
             color: "rgba(255,255,255,0.25)", fontSize: 9, cursor: "pointer",
           }}
         >

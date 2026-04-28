@@ -2,13 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { generateWithSleek } from "@/lib/evermade/sleek/client";
 
-// Lightweight Sleek route for the builder live preview.
-// Returns screens with HTML + screenshot URLs — NO React Native conversion
-// (that only happens at export time via /api/generate).
-
 export async function POST(req: NextRequest) {
   try {
-    // Auth guard
     const jar = await cookies();
     if (jar.get("evermade-auth")?.value !== "true") {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
@@ -36,7 +31,6 @@ export async function POST(req: NextRequest) {
           id: s.id,
           name: s.name,
           html: s.html,
-          screenshotUrl: s.screenshotUrl,
         })),
         activeIndex: 0,
       },
