@@ -121,8 +121,58 @@ export default function BuilderTopBar() {
   const [activeTab, setActiveTab] = useState("preview");
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
+  const [exporting, setExporting] = useState<"idle" | "generating" | "packaging">("idle");
+  const [exportError, setExportError] = useState<{ message: string; upgradeUrl?: string } | null>(null);
   const router = useRouter();
   const { project } = useEditor();
+
+  const handleExport = async () => {
+    if (exporting !== "idle") return;
+    setExporting("generating");
+    setExportError(null);
+    try {
+      const genRes = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: `Build a ${project.name} mobile app`, appName: project.name }),
+      });
+
+      if (genRes.status === 403 || genRes.status === 401) {
+        const data = await genRes.json() as { message?: string; upgradeUrl?: string; redirectUrl?: string };
+        if (data.redirectUrl) { router.push(data.redirectUrl); return; }
+        setExportError({ message: data.message ?? "Upgrade required", upgradeUrl: data.upgradeUrl });
+        return;
+      }
+      if (!genRes.ok) throw new Error(await genRes.text());
+
+      const { app } = await genRes.json() as { app: { id: string } };
+
+      setExporting("packaging");
+      const zipRes = await fetch(`/api/apps/${app.id}/export`);
+
+      if (zipRes.status === 403) {
+        const data = await zipRes.json() as { message?: string; upgradeUrl?: string };
+        setExportError({ message: data.message ?? "Upgrade to export", upgradeUrl: data.upgradeUrl });
+        return;
+      }
+      if (!zipRes.ok) throw new Error(await zipRes.text());
+
+      const blob = await zipRes.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${project.name.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase()}-expo.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Export failed:", err);
+      setExportError({ message: "Export failed. Please try again." });
+    } finally {
+      setExporting("idle");
+    }
+  };
 
   const handleShare = useCallback(async () => {
     if (sharing) return;
@@ -279,6 +329,34 @@ export default function BuilderTopBar() {
         {/* Divider */}
         <div style={{ width: 1, height: 18, background: "rgba(255,255,255,0.1)", margin: "0 2px" }} />
 
+        {/* Export to Expo */}
+        <button
+          onClick={handleExport}
+          disabled={exporting !== "idle"}
+          title="Export as Expo ZIP"
+          style={{
+            display: "flex", alignItems: "center", gap: 5,
+            padding: "6px 13px",
+            borderRadius: 9,
+            border: "1px solid rgba(52,211,153,0.28)",
+            background: exporting !== "idle" ? "rgba(52,211,153,0.05)" : "rgba(52,211,153,0.10)",
+            color: exporting !== "idle" ? "rgba(52,211,153,0.4)" : "#34d399",
+            fontSize: 12.5,
+            fontWeight: 600,
+            cursor: exporting !== "idle" ? "default" : "pointer",
+            fontFamily: "inherit",
+            letterSpacing: -0.1,
+            transition: "all 0.14s ease",
+          }}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          {exporting === "generating" ? "Generating…" : exporting === "packaging" ? "Packaging…" : "Export"}
+        </button>
+
         {/* Share preview */}
         <button
           onClick={handleShare}
@@ -355,6 +433,48 @@ export default function BuilderTopBar() {
     {/* Share modal — rendered outside the bar so it overlays everything */}
     {shareUrl && (
       <ShareModal previewUrl={shareUrl!} onClose={() => setShareUrl(null)} />
+    )}
+
+    {/* Export error toast */}
+    {exportError && (
+      <div style={{
+        position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)",
+        zIndex: 1000, display: "flex", alignItems: "center", gap: 12,
+        padding: "12px 18px", borderRadius: 14,
+        background: "rgba(20,10,10,0.97)", border: "1px solid rgba(239,68,68,0.3)",
+        boxShadow: "0 8px 40px rgba(0,0,0,0.7)",
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+        maxWidth: 420,
+      }}>
+        <span style={{ fontSize: 15 }}>🔒</span>
+        <span style={{ fontSize: 13, color: "rgba(255,255,255,0.75)", flex: 1 }}>
+          {exportError.message}
+        </span>
+        {exportError.upgradeUrl && (
+          <a
+            href={exportError.upgradeUrl}
+            style={{
+              padding: "6px 14px", borderRadius: 8, border: "none",
+              background: "linear-gradient(135deg, rgba(124,58,237,0.9), rgba(109,40,217,0.9))",
+              color: "#fff", fontSize: 12, fontWeight: 700, textDecoration: "none",
+              whiteSpace: "nowrap", flexShrink: 0,
+            }}
+          >
+            Upgrade
+          </a>
+        )}
+        <button
+          onClick={() => setExportError(null)}
+          style={{
+            width: 22, height: 22, borderRadius: "50%", border: "none",
+            background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.4)",
+            fontSize: 13, cursor: "pointer", display: "flex",
+            alignItems: "center", justifyContent: "center", flexShrink: 0,
+          }}
+        >
+          ×
+        </button>
+      </div>
     )}
   </>
   );
