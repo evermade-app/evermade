@@ -289,8 +289,67 @@ function GenericScreenRenderer({ screenId, primaryColor, primaryRgb }: { screenI
   );
 }
 
+// ── Sleek preview — renders actual Sleek HTML in an iframe ───────────────────
+function SleekPreview() {
+  const { sleekApp, setSleekActiveIndex, setSleekApp } = useEditor();
+  if (!sleekApp) return null;
+
+  const active = sleekApp.screens[sleekApp.activeIndex];
+
+  return (
+    <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", background: "#080818", position: "relative" }}>
+      {/* iframe fills the phone screen */}
+      {active && (
+        <iframe
+          key={active.id}
+          srcDoc={active.html}
+          sandbox="allow-scripts allow-same-origin"
+          style={{ flex: 1, width: "100%", border: "none", display: "block" }}
+          title={active.name}
+        />
+      )}
+
+      {/* Screen tab strip — pinned at bottom */}
+      <div style={{
+        display: "flex", overflowX: "auto", gap: 4, padding: "5px 6px",
+        background: "rgba(8,8,24,0.97)", borderTop: "1px solid rgba(255,255,255,0.07)",
+        scrollbarWidth: "none", flexShrink: 0,
+      }}>
+        {sleekApp.screens.map((s, i) => (
+          <button
+            key={s.id}
+            onClick={() => setSleekActiveIndex(i)}
+            style={{
+              flexShrink: 0, padding: "3px 8px", borderRadius: 6, border: "none",
+              background: i === sleekApp.activeIndex ? "rgba(124,92,252,0.7)" : "rgba(255,255,255,0.06)",
+              color: i === sleekApp.activeIndex ? "#fff" : "rgba(255,255,255,0.35)",
+              fontSize: 9, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap",
+              letterSpacing: 0.2,
+            }}
+          >
+            {s.name}
+          </button>
+        ))}
+        <button
+          onClick={() => setSleekApp(null)}
+          style={{
+            flexShrink: 0, marginLeft: "auto", padding: "3px 8px", borderRadius: 6,
+            border: "1px solid rgba(255,255,255,0.1)", background: "none",
+            color: "rgba(255,255,255,0.25)", fontSize: 9, cursor: "pointer",
+          }}
+        >
+          ✕ reset
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function PreviewScreen() {
-  const { project, editMode, setSelection, setActiveScreen } = useEditor();
+  const { project, editMode, setSelection, setActiveScreen, sleekApp } = useEditor();
+
+  // Sleek preview takes over the whole phone screen
+  if (sleekApp) return <SleekPreview />;
 
   const screenId = project.activeScreenId;
   const activeScreen = project.screens.find((s) => s.id === screenId);

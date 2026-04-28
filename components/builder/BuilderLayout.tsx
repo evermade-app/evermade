@@ -29,7 +29,7 @@ function now() {
 }
 
 function BuilderLayoutInner() {
-  const { hydrated, selection, project, updateComponent, updateScreenStyle, updateTheme, setProject, addScreen, addComponent, updateNavigation, linkNavItem, setActiveScreen } = useEditor();
+  const { hydrated, selection, project, updateComponent, updateScreenStyle, updateTheme, setProject, addScreen, addComponent, updateNavigation, linkNavItem, setActiveScreen, setSleekApp } = useEditor();
   const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
   const [prompt, setPrompt] = useState("");
 
@@ -124,6 +124,32 @@ function BuilderLayoutInner() {
       .filter((m) => !m.isThinking && m.content)
       .slice(-8)
       .map((m) => ({ role: m.role === "ai" ? "assistant" : "user", content: m.content }));
+
+    // ── Sleek live preview — intercept "build/create/make X app" requests ────
+    const isBuildRequest = /\b(build|create|make|generate|design)\b.{0,40}?\b(app|application|mobile)\b/i.test(text);
+    if (isBuildRequest && process.env.NEXT_PUBLIC_APP_URL !== undefined) {
+      try {
+        const sleekRes = await fetch("/api/ai/sleek", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: text, appName: project.name }),
+        });
+        if (sleekRes.ok) {
+          const { app } = await sleekRes.json() as {
+            app: { id: string; appName: string; activeIndex: number; screens: Array<{ id: string; name: string; html: string; screenshotUrl?: string }> };
+          };
+          setSleekApp(app);
+          resolveThinking(
+            thinkingId,
+            `Done — generated **${app.screens.length} screens** with Sleek ✨\n\nClick any screen tab in the preview to browse them. Use the Export button in the top bar to download the full Expo project.`
+          );
+          return;
+        }
+        // Non-OK → fall through to normal AI path
+      } catch {
+        // Network error → fall through to normal AI path
+      }
+    }
 
     // ── Try AI interpreter ────────────────────────────────────────────────────
     try {

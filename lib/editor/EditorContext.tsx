@@ -21,6 +21,20 @@ import {
   linkNavItemToScreen,
 } from "./projectState";
 
+export interface SleekPreviewScreen {
+  id: string;
+  name: string;
+  html: string;
+  screenshotUrl?: string;
+}
+
+export interface SleekPreviewApp {
+  id: string;
+  appName: string;
+  screens: SleekPreviewScreen[];
+  activeIndex: number;
+}
+
 type EditorContextValue = {
   hydrated: boolean;
   editMode: boolean;
@@ -39,6 +53,10 @@ type EditorContextValue = {
   updateNavigation: (items: NavItem[]) => void;
   linkNavItem: (navItemId: string, screenId: string) => void;
   setActiveScreen: (screenId: string) => void;
+  // Sleek live preview
+  sleekApp: SleekPreviewApp | null;
+  setSleekApp: (app: SleekPreviewApp | null) => void;
+  setSleekActiveIndex: (index: number) => void;
 };
 
 const EditorContext = createContext<EditorContextValue | null>(null);
@@ -56,6 +74,7 @@ export function EditorProvider({
   const [selection, setSelectionState] = useState<Selection>(null);
   const [project, setProjectState] = useState<Project>(initialProject ?? FITTRACK_PROJECT);
   const [hydrated, setHydrated] = useState(isPreview);
+  const [sleekApp, setSleekAppState] = useState<SleekPreviewApp | null>(null);
 
   // Load persisted project once on mount — skip when a project is injected directly
   useEffect(() => {
@@ -133,6 +152,16 @@ export function EditorProvider({
     setProjectState((prev) => ({ ...prev, activeScreenId: screenId }));
   }, []);
 
+  const setSleekApp = useCallback((app: SleekPreviewApp | null) => {
+    setSleekAppState(app);
+  }, []);
+
+  const setSleekActiveIndex = useCallback((index: number) => {
+    setSleekAppState((prev) =>
+      prev ? { ...prev, activeIndex: index } : prev
+    );
+  }, []);
+
   return (
     <EditorContext.Provider
       value={{
@@ -153,6 +182,9 @@ export function EditorProvider({
         updateNavigation,
         linkNavItem,
         setActiveScreen,
+        sleekApp,
+        setSleekApp,
+        setSleekActiveIndex,
       }}
     >
       {children}
