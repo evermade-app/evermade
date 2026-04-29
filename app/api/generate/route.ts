@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { generateWithSleek } from "@/lib/evermade/sleek/client";
 import { convertScreensToRN } from "@/lib/evermade/sleek/rn-converter";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { canGenerateApp, type PlanId } from "@/lib/evermade/plans";
 
 export interface GeneratedApp {
@@ -35,12 +35,11 @@ export function getCachedApp(id: string): GeneratedApp | undefined {
   return appCache.get(id)?.app;
 }
 
-// ── Session helper ────────────────────────────────────────────────────────────
-// Returns a stable session ID from cookie. When real Supabase auth is wired in,
-// replace this with the authenticated user's UUID.
-async function getSessionId(): Promise<string | null> {
+// ── User identity ─────────────────────────────────────────────────────────────
+// Reads the Supabase user UUID set by the OAuth callback.
+async function getUserId(): Promise<string | null> {
   const jar = await cookies();
-  return jar.get("evermade-sid")?.value ?? null;
+  return jar.get("evermade-uid")?.value ?? null;
 }
 
 // ── Plan + usage check ────────────────────────────────────────────────────────
@@ -50,16 +49,16 @@ interface UsageContext {
   shouldReset: boolean;
 }
 
-async function getUserUsage(sessionId: string): Promise<UsageContext> {
+async function getUserUsage(userId: string): Promise<UsageContext> {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = createServiceSupabaseClient();
     const { data: profile } = await supabase
       .from("profiles")
       .select("plan, screens_used_this_month, screens_reset_date")
-      .eq("session_id", sessionId)
+      .eq("id", userId)
       .single();
 
-    const userPlan = ((profile?.plan ?? "free") as PlanId);
+    const userPlan = (profile?.plan ?? "starter") as PlanId;
     const screensUsed: number = profile?.screens_used_this_month ?? 0;
 
     const resetDate = new Date(profile?.screens_reset_date ?? Date.now());
@@ -70,31 +69,27 @@ async function getUserUsage(sessionId: string): Promise<UsageContext> {
 
     return { userPlan, screensUsed, shouldReset };
   } catch {
-    // Supabase table not set up yet — treat as free plan with 0 usage
-    return { userPlan: "free", screensUsed: 0, shouldReset: false };
+    return { userPlan: "starter", screensUsed: 0, shouldReset: false };
   }
 }
 
 async function incrementScreenUsage(
-  sessionId: string,
+  userId: string,
   currentUsed: number,
   shouldReset: boolean
 ): Promise<void> {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = createServiceSupabaseClient();
     const newCount = (shouldReset ? 0 : currentUsed) + 9;
     await supabase
       .from("profiles")
-      .upsert(
-        {
-          session_id: sessionId,
-          screens_used_this_month: newCount,
-          screens_reset_date: shouldReset ? new Date().toISOString() : undefined,
-        },
-        { onConflict: "session_id" }
-      );
+      .update({
+        screens_used_this_month: newCount,
+        ...(shouldReset ? { screens_reset_date: new Date().toISOString() } : {}),
+      })
+      .eq("id", userId);
   } catch {
-    // Non-fatal — generation still succeeds even if we can't track
+    // Non-fatal
   }
 }
 
@@ -125,13 +120,16 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Plan enforcement ──────────────────────────────────────────────────────
-    let sessionId = jar.get("evermade-sid")?.value;
-    if (!sessionId) {
-      // Generate a new session ID on first API call
-      sessionId = `sid_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const userId = await getUserId();
+
+    let userPlan: PlanId = "starter";
+    let screensUsed = 0;
+    let shouldReset = false;
+
+    if (userId) {
+      ({ userPlan, screensUsed, shouldReset } = await getUserUsage(userId));
     }
 
-    const { userPlan, screensUsed, shouldReset } = await getUserUsage(sessionId);
     const effectiveUsed = shouldReset ? 0 : screensUsed;
 
     if (!canGenerateApp(userPlan, effectiveUsed)) {
@@ -169,21 +167,11 @@ export async function POST(req: NextRequest) {
     appCache.set(app.id, { app, expiresAt: Date.now() + 60 * 60 * 1000 });
 
     // ── Track usage ───────────────────────────────────────────────────────────
-    await incrementScreenUsage(sessionId, screensUsed, shouldReset);
-
-    // ── Response — set session cookie if new ──────────────────────────────────
-    const response = NextResponse.json({ app });
-    const existingSid = await getSessionId();
-    if (!existingSid) {
-      response.cookies.set("evermade-sid", sessionId, {
-        path: "/",
-        maxAge: 60 * 60 * 24 * 365,
-        sameSite: "lax",
-        httpOnly: true,
-      });
+    if (userId) {
+      await incrementScreenUsage(userId, screensUsed, shouldReset);
     }
 
-    return response;
+    return NextResponse.json({ app });
   } catch (err) {
     console.error("[/api/generate]", err);
     return NextResponse.json(

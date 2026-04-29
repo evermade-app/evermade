@@ -76,6 +76,19 @@ async function pollRun(projectId: string, runId: string): Promise<void> {
   throw new Error("Sleek run timed out after 3 minutes");
 }
 
+// Canonical screen order — used to sort Sleek's response
+const CANONICAL_SCREENS = [
+  "Onboarding Welcome",
+  "Onboarding Features",
+  "Onboarding Sign Up",
+  "Home Dashboard",
+  "Core Feature",
+  "Secondary Feature",
+  "Detail Screen",
+  "Profile Screen",
+  "Settings Screen",
+] as const;
+
 // Step 4 — list all components (screens), each has full HTML in versions[0].code
 async function listComponents(projectId: string): Promise<SleekScreen[]> {
   const data = await api<Array<{
@@ -85,32 +98,44 @@ async function listComponents(projectId: string): Promise<SleekScreen[]> {
     versions: Array<{ id: string; version: number; code: string }>;
   }>>(`/projects/${projectId}/components`);
 
-  return data.map((comp) => {
-    // Use the active version's code
+  const screens = data.map((comp) => {
     const activeVersion = comp.versions.find((v) => v.version === comp.activeVersion)
       ?? comp.versions[comp.versions.length - 1];
-
     return {
       id: comp.id,
       name: comp.name,
       html: activeVersion?.code ?? "",
     };
   });
+
+  // Sort by canonical order so the first screen is always Onboarding Welcome
+  screens.sort((a, b) => {
+    const ai = CANONICAL_SCREENS.findIndex(
+      (c) => a.name.toLowerCase().includes(c.toLowerCase()) || c.toLowerCase().includes(a.name.toLowerCase())
+    );
+    const bi = CANONICAL_SCREENS.findIndex(
+      (c) => b.name.toLowerCase().includes(c.toLowerCase()) || c.toLowerCase().includes(b.name.toLowerCase())
+    );
+    return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
+  });
+
+  return screens;
 }
 
 function buildSleekPrompt(userPrompt: string): string {
   return `${userPrompt}
 
-Design a COMPLETE mobile app with EXACTLY these 9 screens:
-1. Onboarding Welcome — hero screen with the app's value proposition
-2. Onboarding Features — showcase 3 key features with icons
-3. Onboarding Get Started — final CTA with account creation options
-4. Home / Dashboard — main screen with key metrics, quick actions, activity feed
-5. Core Feature — the primary feature of this app, richly designed
-6. Secondary Feature — the second most important feature
-7. Detail Screen — detail view of a specific item or card
-8. Profile Screen — user profile with stats and achievements
-9. Settings Screen — app settings grouped by category
+Design a COMPLETE mobile app with EXACTLY these 9 screens in this precise order. Name each screen EXACTLY as written below:
+
+Screen 1: "Onboarding Welcome" — hero screen with the app's value proposition, full-bleed design, NO bottom tab bar
+Screen 2: "Onboarding Features" — showcase 3 key features with icons, full-bleed design, NO bottom tab bar
+Screen 3: "Onboarding Sign Up" — final CTA with account creation options (email, Google, Apple), NO bottom tab bar
+Screen 4: "Home Dashboard" — main screen with key metrics, quick actions, activity feed, WITH bottom tab bar
+Screen 5: "Core Feature" — the primary feature of this app, richly designed, WITH bottom tab bar
+Screen 6: "Secondary Feature" — the second most important feature, WITH bottom tab bar
+Screen 7: "Detail Screen" — detail view of a specific item or card, WITH bottom tab bar
+Screen 8: "Profile Screen" — user profile with stats and achievements, WITH bottom tab bar
+Screen 9: "Settings Screen" — app settings grouped by category, WITH bottom tab bar
 
 Design requirements:
 - Dark premium aesthetic with rich, saturated colors matching the app domain

@@ -4,12 +4,13 @@ import { useRef, useState, useEffect } from "react";
 import { useEditor } from "@/lib/editor/EditorContext";
 import PhoneMockup from "./PhoneMockup";
 import PreviewScreen from "./PreviewScreen";
+import type { SleekPreviewApp } from "@/lib/editor/EditorContext";
 
 const PHONE_H = 628;
 const PHONE_W = 292;
 
 export default function BuilderPreview() {
-  const { editMode, setSelection } = useEditor();
+  const { editMode, setSelection, sleekApp, setSleekActiveIndex, setSleekApp } = useEditor();
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
 
@@ -198,6 +199,90 @@ export default function BuilderPreview() {
         pointerEvents: "none",
         zIndex: 1,
       }} />
+
+      {/* Sleek screen tabs — outside the phone, pinned at the bottom of the preview area */}
+      {sleekApp && (
+        <SleekTabStrip
+          sleekApp={sleekApp}
+          setSleekActiveIndex={setSleekActiveIndex}
+          setSleekApp={setSleekApp}
+        />
+      )}
+    </div>
+  );
+}
+
+function SleekTabStrip({
+  sleekApp,
+  setSleekActiveIndex,
+  setSleekApp,
+}: {
+  sleekApp: SleekPreviewApp;
+  setSleekActiveIndex: (i: number) => void;
+  setSleekApp: (app: SleekPreviewApp | null) => void;
+}) {
+  return (
+    <div style={{
+      position: "absolute",
+      bottom: 16,
+      left: "50%",
+      transform: "translateX(-50%)",
+      zIndex: 10,
+      display: "flex",
+      alignItems: "center",
+      gap: 4,
+      padding: "5px 8px",
+      borderRadius: 12,
+      background: "rgba(8,8,20,0.9)",
+      border: "1px solid rgba(255,255,255,0.08)",
+      backdropFilter: "blur(16px)",
+      WebkitBackdropFilter: "blur(16px)",
+      boxShadow: "0 4px 24px rgba(0,0,0,0.5)",
+      maxWidth: "calc(100% - 40px)",
+      overflowX: "auto",
+      scrollbarWidth: "none",
+    }}>
+      {sleekApp.screens.map((s, i) => (
+        <button
+          key={s.id}
+          onClick={() => setSleekActiveIndex(i)}
+          style={{
+            flexShrink: 0,
+            padding: "4px 10px",
+            borderRadius: 7,
+            border: "none",
+            background: i === sleekApp.activeIndex
+              ? "rgba(124,92,252,0.75)"
+              : "rgba(255,255,255,0.05)",
+            color: i === sleekApp.activeIndex ? "#fff" : "rgba(255,255,255,0.35)",
+            fontSize: 10,
+            fontWeight: 600,
+            cursor: "pointer",
+            whiteSpace: "nowrap",
+            letterSpacing: 0.2,
+            transition: "background 0.15s, color 0.15s",
+          }}
+        >
+          {s.name}
+        </button>
+      ))}
+      <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.08)", marginLeft: 2, flexShrink: 0 }} />
+      <button
+        onClick={() => setSleekApp(null)}
+        style={{
+          flexShrink: 0,
+          padding: "4px 8px",
+          borderRadius: 7,
+          border: "none",
+          background: "none",
+          color: "rgba(255,255,255,0.22)",
+          fontSize: 10,
+          cursor: "pointer",
+          letterSpacing: 0.2,
+        }}
+      >
+        ✕
+      </button>
     </div>
   );
 }

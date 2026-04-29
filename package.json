@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@internationalized/date": "^3.12.1",
+    "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.103.3",
     "@types/jszip": "^3.4.0",
     "@types/qrcode": "^1.5.6",

@@ -4,7 +4,7 @@ import "../auth.css";
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { supabase, loginClient, setUserProfile } from "@/lib/auth";
+import { getSupabase, loginClient, setUserProfile } from "@/lib/auth";
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -188,14 +188,15 @@ function LoginPageInner() {
   const [email, setEmail] = useState("");
 
   const handleGoogle = async () => {
-    if (!supabase) {
+    const client = getSupabase();
+    if (!client) {
       if (email) setUserProfile(undefined, email);
       loginClient();
       window.location.href = nextPath;
       return;
     }
     const callbackUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { error } = await client.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: callbackUrl },
     });

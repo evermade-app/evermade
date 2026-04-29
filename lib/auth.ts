@@ -1,15 +1,25 @@
-import { createClient } from "@supabase/supabase-js";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-export const supabase =
-  supabaseUrl && supabaseAnonKey
-    ? createClient(supabaseUrl, supabaseAnonKey)
-    : null;
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 
 export const AUTH_STORAGE_KEY = "evermade-auth-demo";
 export const AUTH_COOKIE = "evermade-auth";
+
+// Lazy singleton — safe to call in any client component
+let _client: ReturnType<typeof createSupabaseBrowserClient> | null | undefined;
+
+export function getSupabase() {
+  if (_client === undefined) {
+    try {
+      _client = createSupabaseBrowserClient();
+    } catch {
+      _client = null;
+    }
+  }
+  return _client;
+}
+
+// Backward-compat named export used by existing components
+export const supabase =
+  typeof window !== "undefined" ? getSupabase() : null;
 
 export function isLoggedInClient(): boolean {
   if (typeof window === "undefined") return false;
@@ -23,7 +33,6 @@ export function isLoggedInClient(): boolean {
 export function loginClient(): void {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(AUTH_STORAGE_KEY, "true");
-  // Cookie lisible par le middleware (30 jours)
   document.cookie = `${AUTH_COOKIE}=true; path=/; max-age=2592000; SameSite=Lax`;
 }
 
@@ -31,7 +40,7 @@ export function logoutClient(): void {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(AUTH_STORAGE_KEY);
   window.localStorage.removeItem("evermade-user-profile");
-  document.cookie = `${AUTH_COOKIE}=; path=/; max-age=0; path=/`;
+  document.cookie = `${AUTH_COOKIE}=; path=/; max-age=0`;
 }
 
 export function setUserProfile(name?: string, email?: string): void {

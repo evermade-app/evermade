@@ -2,20 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { assembleExpoZip } from "@/lib/evermade/sleek/expo-assembler";
 import { getCachedApp } from "@/app/api/generate/route";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { canExportApp, type PlanId } from "@/lib/evermade/plans";
 
-async function getUserPlan(sessionId: string): Promise<PlanId> {
+async function getUserPlan(userId: string): Promise<PlanId> {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = createServiceSupabaseClient();
     const { data: profile } = await supabase
       .from("profiles")
       .select("plan")
-      .eq("session_id", sessionId)
+      .eq("id", userId)
       .single();
-    return ((profile?.plan ?? "free") as PlanId);
+    return (profile?.plan ?? "starter") as PlanId;
   } catch {
-    return "free";
+    return "starter";
   }
 }
 
@@ -27,14 +27,12 @@ export async function GET(
   try {
     const jar = await cookies();
 
-    // Auth guard
     if (jar.get("evermade-auth")?.value !== "true") {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
 
-    // Plan guard
-    const sessionId = jar.get("evermade-sid")?.value ?? "";
-    const userPlan = await getUserPlan(sessionId);
+    const userId = jar.get("evermade-uid")?.value ?? "";
+    const userPlan = userId ? await getUserPlan(userId) : "starter";
 
     if (!canExportApp(userPlan)) {
       return NextResponse.json(
@@ -99,8 +97,8 @@ export async function POST(
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
 
-    const sessionId = jar.get("evermade-sid")?.value ?? "";
-    const userPlan = await getUserPlan(sessionId);
+    const userId = jar.get("evermade-uid")?.value ?? "";
+    const userPlan = userId ? await getUserPlan(userId) : "starter";
 
     if (!canExportApp(userPlan)) {
       return NextResponse.json(
