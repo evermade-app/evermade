@@ -7,87 +7,65 @@ function CallbackHandler() {
   const [status, setStatus] = useState("Signing you in…");
 
   useEffect(() => {
-    async function handle() {
-      console.log("STEP 1 — callback page loaded, full URL:", window.location.href);
+    const supabase = getSupabase();
+    console.log("STEP 1 — callback page loaded, full URL:", window.location.href);
+    console.log("STEP 1 — hash:", window.location.hash.slice(0, 60));
+    console.log("STEP 1 — supabase client:", supabase ? "OK" : "NULL");
 
-      const params = new URLSearchParams(window.location.search);
-      const code = params.get("code");
-      const error = params.get("error");
-      const errorDescription = params.get("error_description");
-
-      console.log("STEP 2 — code:", code ? code.slice(0, 20) + "…" : "MISSING");
-      console.log("STEP 2 — error param:", error, errorDescription);
-
-      if (error) {
-        console.error("STEP 2 ERROR — OAuth error from Supabase:", error, errorDescription);
-        setStatus("Auth error: " + error);
-        setTimeout(() => window.location.replace("/login?error=" + error), 2000);
-        return;
-      }
-
-      const supabase = getSupabase();
-      console.log("STEP 3 — supabase client:", supabase ? "OK" : "NULL (no env vars?)");
-
-      if (!supabase) {
-        console.log("STEP 3 — no Supabase client, demo mode — setting cookie and redirecting");
-        document.cookie = "evermade-auth=true; path=/; max-age=2592000; SameSite=Lax";
-        window.location.replace("/dashboard");
-        return;
-      }
-
-      if (!code) {
-        console.warn("STEP 4 — no code in URL, trying getSession fallback");
-        const { data: { session } } = await supabase.auth.getSession();
-        console.log("STEP 4 — getSession result:", session ? "session found, user=" + session.user.id : "NO SESSION");
-        if (session) {
-          document.cookie = "evermade-auth=true; path=/; max-age=2592000; SameSite=Lax";
-          document.cookie = `evermade-uid=${session.user.id}; path=/; max-age=2592000; SameSite=Lax`;
-          console.log("STEP 4 — cookies set, redirecting to /dashboard");
-          window.location.replace("/dashboard");
-        } else {
-          console.error("STEP 4 — no code AND no session — auth failed");
-          window.location.replace("/login?error=no_code");
-        }
-        return;
-      }
-
-      console.log("STEP 5 — calling exchangeCodeForSession…");
-      const { data, error: exchError } = await supabase.auth.exchangeCodeForSession(code);
-      console.log("STEP 5 — exchange result:", {
-        userId: data?.user?.id ?? "null",
-        error: exchError?.message ?? "none",
-        status: exchError?.status ?? "n/a",
-      });
-
-      if (!exchError && data?.user) {
-        document.cookie = "evermade-auth=true; path=/; max-age=2592000; SameSite=Lax";
-        document.cookie = `evermade-uid=${data.user.id}; path=/; max-age=2592000; SameSite=Lax`;
-        console.log("STEP 6 — cookies set ✅");
-        console.log("STEP 6 — evermade-auth:", document.cookie.includes("evermade-auth=true"));
-        console.log("STEP 6 — redirecting to /dashboard…");
-        window.location.replace("/dashboard");
-        return;
-      }
-
-      // Exchange failed — try getSession as last resort
-      console.warn("STEP 7 — exchange failed, trying getSession as last resort");
-      const { data: { session } } = await supabase.auth.getSession();
-      console.log("STEP 7 — getSession:", session ? "found user=" + session.user.id : "empty");
-
-      if (session) {
-        document.cookie = "evermade-auth=true; path=/; max-age=2592000; SameSite=Lax";
-        document.cookie = `evermade-uid=${session.user.id}; path=/; max-age=2592000; SameSite=Lax`;
-        console.log("STEP 7 — cookies set via fallback, redirecting to /dashboard");
-        window.location.replace("/dashboard");
-        return;
-      }
-
-      console.error("STEP 8 — ALL PATHS FAILED — redirecting to /login");
-      setStatus("Sign-in failed. Redirecting…");
-      setTimeout(() => window.location.replace("/login?error=auth_failed"), 2000);
+    if (!supabase) {
+      document.cookie = "evermade-auth=true; path=/; max-age=2592000; SameSite=Lax";
+      window.location.replace("/dashboard");
+      return;
     }
 
-    handle();
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get("error");
+    if (error) {
+      console.error("STEP 2 — OAuth error:", error, params.get("error_description"));
+      setStatus("Auth error: " + error);
+      setTimeout(() => window.location.replace("/login?error=" + error), 2000);
+      return;
+    }
+
+    let redirected = false;
+
+    function finish(session: { user: { id: string } }) {
+      if (redirected) return;
+      redirected = true;
+      console.log("STEP 5 — session found, user:", session.user.id);
+      document.cookie = "evermade-auth=true; path=/; max-age=2592000; SameSite=Lax";
+      document.cookie = `evermade-uid=${session.user.id}; path=/; max-age=2592000; SameSite=Lax`;
+      console.log("STEP 6 — cookies set ✅ — redirecting to /dashboard");
+      window.location.replace("/dashboard");
+    }
+
+    // onAuthStateChange fires when the client processes the implicit-flow hash
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("STEP 3 — onAuthStateChange:", event, session ? "session OK" : "no session");
+      if ((event === "SIGNED_IN" || event === "TOKEN_REFRESHED") && session) {
+        finish(session);
+      }
+    });
+
+    // Also try getSession() immediately in case it was already processed
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log("STEP 4 — getSession():", session ? "session OK user=" + session.user.id : "no session");
+      if (session) finish(session);
+    });
+
+    // Hard timeout: if nothing happens in 10s, bail out
+    const timeout = setTimeout(() => {
+      if (!redirected) {
+        console.error("STEP 8 — timeout — no session after 10s");
+        setStatus("Sign-in failed. Redirecting…");
+        setTimeout(() => window.location.replace("/login?error=auth_failed"), 1500);
+      }
+    }, 10000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, []);
 
   return (
