@@ -4,7 +4,7 @@ import "../auth.css";
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { getSupabase, loginClient, setUserProfile } from "@/lib/auth";
+import { signIn } from "next-auth/react";
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -188,19 +188,7 @@ function LoginPageInner() {
   const [email, setEmail] = useState("");
 
   const handleGoogle = async () => {
-    const client = getSupabase();
-    if (!client) {
-      if (email) setUserProfile(undefined, email);
-      loginClient();
-      window.location.href = nextPath;
-      return;
-    }
-    const callbackUrl = `${window.location.origin}/auth/callback`;
-    const { error } = await client.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: callbackUrl },
-    });
-    if (error) console.error("Google OAuth error:", error.message);
+    await signIn("google", { callbackUrl: nextPath });
   };
 
   const handleDemo = () => {

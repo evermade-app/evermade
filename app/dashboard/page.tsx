@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import VideoBackground from "@/components/hero/VideoBackground";
 import HeroBadge from "@/components/hero/HeroBadge";
 import HeroHeadline from "@/components/hero/HeroHeadline";
@@ -8,7 +8,7 @@ import HeroWindow from "@/components/hero/HeroWindow";
 import DashboardHeroNav from "@/components/dashboard/DashboardHeroNav";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
 import ProjectsPanel from "@/components/dashboard/ProjectsPanel";
-import { supabase, getUserProfile } from "@/lib/auth";
+import { useSession } from "next-auth/react";
 
 function extractFirstName(fullName?: string | null, email?: string | null): string | undefined {
   if (fullName) {
@@ -23,27 +23,8 @@ function extractFirstName(fullName?: string | null, email?: string | null): stri
 }
 
 export default function DashboardPage() {
-  const [firstName, setFirstName] = useState<string | undefined>(undefined);
-
-  useEffect(() => {
-    // Supabase available — fetch real session
-    if (supabase) {
-      supabase.auth.getSession().then(({ data }) => {
-        const user = data.session?.user;
-        if (user) {
-          const name = extractFirstName(
-            user.user_metadata?.full_name ?? user.user_metadata?.name,
-            user.email
-          );
-          if (name) { setFirstName(name); return; }
-        }
-      });
-    }
-    // Demo mode fallback — read from localStorage profile
-    const profile = getUserProfile();
-    const name = extractFirstName(profile.name, profile.email);
-    if (name) setFirstName(name);
-  }, []);
+  const { data: session } = useSession();
+  const firstName = extractFirstName(session?.user?.name, session?.user?.email);
 
   return (
     <>

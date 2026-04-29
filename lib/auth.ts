@@ -1,56 +1,5 @@
-import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
-
-export const AUTH_STORAGE_KEY = "evermade-auth-demo";
-export const AUTH_COOKIE = "evermade-auth";
-
-// Lazy singleton — safe to call in any client component
-let _client: ReturnType<typeof createSupabaseBrowserClient> | null | undefined;
-
-export function getSupabase() {
-  if (_client === undefined) {
-    try {
-      _client = createSupabaseBrowserClient();
-    } catch {
-      _client = null;
-    }
-  }
-  return _client;
-}
-
-// Backward-compat named export used by existing components
-export const supabase =
-  typeof window !== "undefined" ? getSupabase() : null;
-
-export function isLoggedInClient(): boolean {
-  if (typeof window === "undefined") return false;
-  const hasCookie = document.cookie
-    .split(";")
-    .some((c) => c.trim().startsWith(`${AUTH_COOKIE}=true`));
-  const hasStorage = window.localStorage.getItem(AUTH_STORAGE_KEY) === "true";
-  return hasCookie || hasStorage;
-}
-
-export function loginClient(): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(AUTH_STORAGE_KEY, "true");
-  document.cookie = `${AUTH_COOKIE}=true; path=/; max-age=2592000; SameSite=Lax`;
-}
-
-export function logoutClient(): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.removeItem(AUTH_STORAGE_KEY);
-  window.localStorage.removeItem("evermade-user-profile");
-  document.cookie = `${AUTH_COOKIE}=; path=/; max-age=0`;
-}
-
-export function setUserProfile(name?: string, email?: string): void {
-  if (typeof window === "undefined") return;
-  const existing = getUserProfile();
-  window.localStorage.setItem(
-    "evermade-user-profile",
-    JSON.stringify({ name: name ?? existing.name, email: email ?? existing.email })
-  );
-}
+// Lightweight localStorage profile helpers used by a few client components.
+// Auth is handled by NextAuth — see lib/nextauth.ts
 
 export function getUserProfile(): { name?: string; email?: string } {
   if (typeof window === "undefined") return {};
@@ -60,4 +9,13 @@ export function getUserProfile(): { name?: string; email?: string } {
   } catch {
     return {};
   }
+}
+
+export function setUserProfile(name?: string, email?: string): void {
+  if (typeof window === "undefined") return;
+  const existing = getUserProfile();
+  window.localStorage.setItem(
+    "evermade-user-profile",
+    JSON.stringify({ name: name ?? existing.name, email: email ?? existing.email })
+  );
 }

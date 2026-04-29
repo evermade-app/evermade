@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/nextauth";
 import { generateWithSleek } from "@/lib/evermade/sleek/client";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { canGenerateApp, type PlanId } from "@/lib/evermade/plans";
@@ -50,9 +51,8 @@ async function incrementUsage(userId: string, currentUsed: number, shouldReset: 
 
 export async function POST(req: NextRequest) {
   try {
-    const jar = await cookies();
-
-    if (jar.get("evermade-auth")?.value !== "true") {
+    const session = await getServerSession(authOptions);
+    if (!session) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
 
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Plan enforcement ──────────────────────────────────────────────────────
-    const userId = jar.get("evermade-uid")?.value ?? null;
+    const userId = session.user.uid ?? null;
     const { userPlan, screensUsed, shouldReset } = await getUserPlanAndUsage(userId);
     const effectiveUsed = shouldReset ? 0 : screensUsed;
 

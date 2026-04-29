@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { getUserProfile, setUserProfile } from "@/lib/auth";
+import { useSession } from "next-auth/react";
 
 const SIDEBAR_WIDTH = 258;
 const RAIL_WIDTH = 52;
@@ -261,22 +261,11 @@ function Divider() {
 export default function DashboardSidebar() {
   const [open, setOpen] = useState(true);
   const [projectsExpanded, setProjectsExpanded] = useState(true);
-  const [userProfile, setUserProfileState] = useState<{ name?: string; email?: string }>({});
+  const { data: session } = useSession();
   const router = useRouter();
 
-  useEffect(() => {
-    const profile = getUserProfile();
-    // One-time migration: seed from hardcoded demo data if no profile stored yet
-    if (!profile.name && !profile.email) {
-      setUserProfile("Yonathan", "yonathanbenzaki@gmail.com");
-      setUserProfileState({ name: "Yonathan", email: "yonathanbenzaki@gmail.com" });
-    } else {
-      setUserProfileState(profile);
-    }
-  }, []);
-
-  const displayName = userProfile.name ?? userProfile.email?.split("@")[0] ?? "User";
-  const displayEmail = userProfile.email ?? "";
+  const displayName = session?.user?.name ?? session?.user?.email?.split("@")[0] ?? "User";
+  const displayEmail = session?.user?.email ?? "";
   const avatarLetter = displayName.charAt(0).toUpperCase();
 
   return (

@@ -4,7 +4,7 @@ import "../auth.css";
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { supabase } from "@/lib/auth";
+import { signIn } from "next-auth/react";
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
@@ -188,16 +188,7 @@ function SignupPageInner() {
   const [email, setEmail] = useState("");
 
   const handleGoogle = async () => {
-    if (!supabase) {
-      window.location.href = `/api/auth/login?next=${encodeURIComponent(nextPath)}`;
-      return;
-    }
-    const callbackUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: { redirectTo: callbackUrl },
-    });
-    if (error) console.error(error.message);
+    await signIn("google", { callbackUrl: nextPath });
   };
 
   const handleDemo = () => {

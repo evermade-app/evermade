@@ -3,12 +3,9 @@ import HeroNav from "../components/hero/HeroNav";
 import HeroBadge from "../components/hero/HeroBadge";
 import HeroHeadline from "../components/hero/HeroHeadline";
 import HeroWindow from "../components/hero/HeroWindow";
-import ImplicitAuthRedirect from "../components/auth/ImplicitAuthRedirect";
-
 export default function HomePage() {
   return (
     <div className="relative" style={{ background: "#050509" }}>
-      <ImplicitAuthRedirect />
       <div className="relative min-h-screen overflow-hidden">
         <VideoBackground />
 

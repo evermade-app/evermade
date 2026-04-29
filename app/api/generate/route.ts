@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/nextauth";
 import { generateWithSleek } from "@/lib/evermade/sleek/client";
 import { convertScreensToRN } from "@/lib/evermade/sleek/rn-converter";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
@@ -35,12 +36,6 @@ export function getCachedApp(id: string): GeneratedApp | undefined {
   return appCache.get(id)?.app;
 }
 
-// ── User identity ─────────────────────────────────────────────────────────────
-// Reads the Supabase user UUID set by the OAuth callback.
-async function getUserId(): Promise<string | null> {
-  const jar = await cookies();
-  return jar.get("evermade-uid")?.value ?? null;
-}
 
 // ── Plan + usage check ────────────────────────────────────────────────────────
 interface UsageContext {
@@ -110,9 +105,8 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Auth guard ────────────────────────────────────────────────────────────
-    const jar = await cookies();
-    const authCookie = jar.get("evermade-auth")?.value;
-    if (authCookie !== "true") {
+    const session = await getServerSession(authOptions);
+    if (!session) {
       return NextResponse.json(
         { error: "Authentication required", redirectUrl: "/login" },
         { status: 401 }
@@ -120,7 +114,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Plan enforcement ──────────────────────────────────────────────────────
-    const userId = await getUserId();
+    const userId = session.user.uid ?? null;
 
     let userPlan: PlanId = "starter";
     let screensUsed = 0;

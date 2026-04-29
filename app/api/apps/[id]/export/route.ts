@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/nextauth";
 import { assembleExpoZip } from "@/lib/evermade/sleek/expo-assembler";
 import { getCachedApp } from "@/app/api/generate/route";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
@@ -25,13 +26,12 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const jar = await cookies();
-
-    if (jar.get("evermade-auth")?.value !== "true") {
+    const session = await getServerSession(authOptions);
+    if (!session) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
 
-    const userId = jar.get("evermade-uid")?.value ?? "";
+    const userId = session.user.uid ?? "";
     const userPlan = userId ? await getUserPlan(userId) : "starter";
 
     if (!canExportApp(userPlan)) {
@@ -91,13 +91,12 @@ export async function POST(
 ) {
   try {
     await params;
-    const jar = await cookies();
-
-    if (jar.get("evermade-auth")?.value !== "true") {
+    const session = await getServerSession(authOptions);
+    if (!session) {
       return NextResponse.json({ error: "Authentication required" }, { status: 401 });
     }
 
-    const userId = jar.get("evermade-uid")?.value ?? "";
+    const userId = session.user.uid ?? "";
     const userPlan = userId ? await getUserPlan(userId) : "starter";
 
     if (!canExportApp(userPlan)) {
