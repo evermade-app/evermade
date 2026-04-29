@@ -4,15 +4,14 @@ import { NextRequest, NextResponse } from "next/server";
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
-  const next = requestUrl.searchParams.get("next") ?? "/dashboard";
   const origin = requestUrl.origin;
 
   if (!code) {
     return NextResponse.redirect(new URL("/login?error=no_code", origin));
   }
 
-  // Build response first so we can set cookies on it
-  const response = NextResponse.redirect(new URL(next, origin));
+  // Always redirect to /dashboard after successful OAuth
+  const response = NextResponse.redirect(new URL("/dashboard", origin));
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

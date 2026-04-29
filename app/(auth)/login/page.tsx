@@ -195,7 +195,7 @@ function LoginPageInner() {
       window.location.href = nextPath;
       return;
     }
-    const callbackUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
+    const callbackUrl = `${window.location.origin}/auth/callback`;
     const { error } = await client.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo: callbackUrl },
