@@ -5,15 +5,24 @@ const PROTECTED = ["/dashboard", "/builder", "/new-project", "/library"];
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // ── OAuth code rescue ─────────────────────────────────────────────────────
+  // Supabase sends the OAuth ?code= to the Site URL (/) when /auth/callback
+  // isn't yet whitelisted. Forward it to our callback handler transparently.
+  if (pathname === "/" && request.nextUrl.searchParams.has("code")) {
+    const code = request.nextUrl.searchParams.get("code")!;
+    return NextResponse.redirect(
+      new URL(`/auth/callback?code=${encodeURIComponent(code)}`, request.url)
+    );
+  }
+
+  // ── Protected routes ──────────────────────────────────────────────────────
   const isProtected = PROTECTED.some(
     (p) => pathname === p || pathname.startsWith(p + "/")
   );
   if (!isProtected) return NextResponse.next();
 
-  // Accept either the Supabase session cookie OR our simple auth cookie
   const hasAuth = request.cookies.get("evermade-auth")?.value === "true";
-  // Supabase SSR stores session in cookies like sb-[ref]-auth-token
-  const hasSupabaseSession = [...request.cookies.getAll()].some(
+  const hasSupabaseSession = request.cookies.getAll().some(
     (c) => c.name.startsWith("sb-") && c.name.endsWith("-auth-token")
   );
 
@@ -28,5 +37,11 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/builder/:path*", "/new-project/:path*", "/library/:path*"],
+  matcher: [
+    "/",
+    "/dashboard/:path*",
+    "/builder/:path*",
+    "/new-project/:path*",
+    "/library/:path*",
+  ],
 };
