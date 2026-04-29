@@ -7,12 +7,13 @@ export function middleware(request: NextRequest) {
 
   // ── OAuth code rescue ─────────────────────────────────────────────────────
   // Supabase sends the OAuth ?code= to the Site URL (/) when /auth/callback
-  // isn't yet whitelisted. Forward it to our callback handler transparently.
+  // isn't yet whitelisted. Forward ALL params (code + state) to our handler.
   if (pathname === "/" && request.nextUrl.searchParams.has("code")) {
-    const code = request.nextUrl.searchParams.get("code")!;
-    return NextResponse.redirect(
-      new URL(`/auth/callback?code=${encodeURIComponent(code)}`, request.url)
-    );
+    const callbackUrl = new URL("/auth/callback", request.url);
+    request.nextUrl.searchParams.forEach((value, key) => {
+      callbackUrl.searchParams.set(key, value);
+    });
+    return NextResponse.redirect(callbackUrl);
   }
 
   // ── Protected routes ──────────────────────────────────────────────────────
