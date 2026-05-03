@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import PricingModal from "./PricingModal";
 import BuyCreditsModal from "./BuyCreditsModal";
+import ShareEvermadeModal from "./ShareEvermadeModal";
 
 const SIDEBAR_WIDTH = 258;
 const RAIL_WIDTH = 52;
@@ -265,6 +266,7 @@ export default function DashboardSidebar() {
   const [projectsExpanded, setProjectsExpanded] = useState(true);
   const [showPricing, setShowPricing] = useState(false);
   const [showBuyCredits, setShowBuyCredits] = useState(false);
+  const [showShare, setShowShare] = useState(false);
   const { data: session } = useSession();
   const router = useRouter();
 
@@ -374,7 +376,7 @@ export default function DashboardSidebar() {
             </button>
 
             <RailIcon icon={<CoinsIcon />} title="Buy credits" onClick={() => setShowBuyCredits(true)} />
-            <RailIcon icon={<GiftIcon />} title="Share Evermade" onClick={() => {}} />
+            <RailIcon icon={<GiftIcon />} title="Share Evermade" onClick={() => setShowShare(true)} />
 
             {/* Avatar */}
             <div
@@ -539,7 +541,7 @@ export default function DashboardSidebar() {
           </button>
 
           <SidebarNavItem icon={<CoinsIcon />} label="Buy credits" onClick={() => setShowBuyCredits(true)} />
-          <SidebarNavItem icon={<GiftIcon />} label="Share Evermade" badge="+100" onClick={() => {}} />
+          <SidebarNavItem icon={<GiftIcon />} label="Share Evermade" badge="+100" onClick={() => setShowShare(true)} />
         </div>
 
         {/* User row */}
@@ -572,6 +574,7 @@ export default function DashboardSidebar() {
       </aside>
       {showPricing && <PricingModal onClose={() => setShowPricing(false)} />}
       {showBuyCredits && <BuyCreditsModal onClose={() => setShowBuyCredits(false)} />}
+      {showShare && <ShareEvermadeModal onClose={() => setShowShare(false)} />}
     </>
   );
 }
