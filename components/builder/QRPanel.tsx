@@ -11,7 +11,7 @@ function RealQRCode({ url }: { url: string }) {
   useEffect(() => {
     if (!url) return;
     QRCode.toDataURL(url, {
-      width: 140,
+      width: 180,
       margin: 1,
       color: { dark: "#0a0818", light: "#ffffff" },
       errorCorrectionLevel: "M",
@@ -22,8 +22,8 @@ function RealQRCode({ url }: { url: string }) {
   return (
     <img
       src={dataUrl}
-      width={140}
-      height={140}
+      width={180}
+      height={180}
       alt="Scan to preview on your device"
       style={{ display: "block", borderRadius: 5 }}
     />
@@ -121,7 +121,7 @@ export default function QRPanel() {
   return (
     <div
       style={{
-        width: 220,
+        width: 260,
         flexShrink: 0,
         height: "100%",
         borderLeft: "1px solid rgba(79,142,255,0.14)",

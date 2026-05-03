@@ -4,7 +4,7 @@ import { useRef, useState, useEffect, useCallback } from "react";
 import { useEditor } from "@/lib/editor/EditorContext";
 import PhoneMockup from "./PhoneMockup";
 import PreviewScreen from "./PreviewScreen";
-import type { SleekPreviewApp, SleekPreviewScreen } from "@/lib/editor/EditorContext";
+import type { SleekPreviewScreen } from "@/lib/editor/EditorContext";
 
 // ── Dimensions ────────────────────────────────────────────────────────────────
 const PHONE_W = 292;
@@ -17,8 +17,8 @@ const DEFAULT_ZOOM = 0.74;
 // Screen glass inset from PhoneMockup: BORDER (2.5) + BEZEL (6) = 8.5px per side
 const SCREEN_INSET = 8.5;
 const SCREEN_W = PHONE_W - 2 * SCREEN_INSET; // 275px
-// Scale factor so iframe content renders at 390px viewport → fits screen glass
-const IFRAME_SCALE = SCREEN_W / 390;          // ~0.705
+// Scale factor so iframe renders at 390px viewport → fits screen glass
+const IFRAME_SCALE = SCREEN_W / 390; // ~0.705
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SLEEK CANVAS — multi-phone horizontal canvas (Figma / Sleek Design style)
@@ -26,23 +26,15 @@ const IFRAME_SCALE = SCREEN_W / 390;          // ~0.705
 function SleekCanvas() {
   const { sleekApp, setSleekActiveIndex, setSleekApp } = useEditor();
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
-  const [interactingId, setInteractingId] = useState<string | null>(null);
-  const interactingIdRef = useRef<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const isDragging = useRef(false);
   const dragOrigin = useRef({ x: 0, scrollLeft: 0 });
 
-  const setInteracting = useCallback((id: string | null) => {
-    interactingIdRef.current = id;
-    setInteractingId(id);
-  }, []);
-
-  // Cmd/Ctrl + scroll → zoom (blocked during interact mode)
+  // Cmd/Ctrl + scroll → zoom
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
     const onWheel = (e: WheelEvent) => {
-      if (interactingIdRef.current !== null) return;
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
         setZoom((z) => Math.min(1.3, Math.max(0.28, z - e.deltaY * 0.0012)));
@@ -52,11 +44,10 @@ function SleekCanvas() {
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
 
-  // Arrow keys → navigate screens (blocked during interact mode)
+  // Arrow keys → navigate screens
   useEffect(() => {
     if (!sleekApp) return;
     const onKey = (e: KeyboardEvent) => {
-      if (interactingIdRef.current !== null) return;
       if (e.key === "ArrowLeft")
         setSleekActiveIndex(Math.max(0, sleekApp.activeIndex - 1));
       if (e.key === "ArrowRight")
@@ -66,19 +57,17 @@ function SleekCanvas() {
     return () => window.removeEventListener("keydown", onKey);
   }, [sleekApp, setSleekActiveIndex]);
 
-  // Drag-to-pan (clicking canvas background also exits interact mode)
+  // Drag-to-pan — only triggers on canvas background, never on a phone card
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     const el = scrollRef.current;
-    if (!el || (e.target as HTMLElement).closest("[data-phone]")) return;
-    if (interactingIdRef.current !== null) {
-      setInteracting(null);
-      return;
-    }
+    if (!el) return;
+    // Ignore clicks originating from inside a phone card (bezel or iframe area)
+    if ((e.target as HTMLElement).closest("[data-phone]")) return;
     isDragging.current = true;
     dragOrigin.current = { x: e.pageX, scrollLeft: el.scrollLeft };
     el.style.cursor = "grabbing";
     e.preventDefault();
-  }, [setInteracting]);
+  }, []);
 
   const onMouseMove = useCallback((e: React.MouseEvent) => {
     if (!isDragging.current || !scrollRef.current) return;
@@ -92,7 +81,6 @@ function SleekCanvas() {
   }, []);
 
   const scaledW = PHONE_W * zoom;
-  const scaledH = PHONE_H * zoom;
   const count = sleekApp?.screens.length ?? 3;
   const canvasW = PADDING_X * 2 + scaledW * count + GAP * (count - 1);
 
@@ -104,9 +92,6 @@ function SleekCanvas() {
     const zoomH = (containerH - PADDING_Y * 2) / PHONE_H;
     setZoom(Math.min(1, zoomW, zoomH));
   };
-
-  // Silence unused var warning
-  void scaledH;
 
   return (
     <div style={{ flex: 1, position: "relative", overflow: "hidden", background: "#08080E" }}>
@@ -177,16 +162,9 @@ function SleekCanvas() {
                 isActive={i === sleekApp.activeIndex}
                 zoom={zoom}
                 onClick={() => setSleekActiveIndex(i)}
-                isInteracting={interactingId === screen.id}
-                onStartInteract={() => {
-                  setSleekActiveIndex(i);
-                  setInteracting(screen.id);
-                }}
-                onStopInteract={() => setInteracting(null)}
               />
             ))
           ) : (
-            // Skeleton state — 3 ghost phones
             [0, 1, 2].map((i) => <SkeletonPhone key={i} index={i} zoom={zoom} />)
           )}
         </div>
@@ -299,7 +277,7 @@ function SleekCanvas() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PHONE CARD — one phone mockup with label + selection ring + interact mode
+// PHONE CARD — one phone mockup with always-interactive iframe
 // ─────────────────────────────────────────────────────────────────────────────
 function PhoneCard({
   screen,
@@ -307,25 +285,18 @@ function PhoneCard({
   isActive,
   zoom,
   onClick,
-  isInteracting,
-  onStartInteract,
-  onStopInteract,
 }: {
   screen: SleekPreviewScreen;
   index: number;
   isActive: boolean;
   zoom: number;
   onClick: () => void;
-  isInteracting: boolean;
-  onStartInteract: () => void;
-  onStopInteract: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
 
   return (
     <div
       data-phone="true"
-      onClick={isInteracting ? undefined : onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -333,54 +304,23 @@ function PhoneCard({
         flexDirection: "column",
         alignItems: "center",
         gap: 14,
-        cursor: isInteracting ? "default" : "pointer",
         flexShrink: 0,
         animation: `phoneSlideUp 0.45s cubic-bezier(0.22,1,0.36,1) ${index * 80}ms both`,
-        transition: "transform 0.2s ease",
-        transform: (hovered && !isInteracting) ? "translateY(-5px)" : "translateY(0)",
       }}
     >
       {/* Scaled phone wrapper */}
-      <div style={{
-        width: PHONE_W * zoom,
-        height: PHONE_H * zoom,
-        position: "relative",
-        flexShrink: 0,
-      }}>
-        {/* ── Done button (interact mode) — floats above phone ── */}
-        {isInteracting && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onStopInteract();
-            }}
-            style={{
-              position: "absolute",
-              top: -36,
-              left: "50%",
-              transform: "translateX(-50%)",
-              display: "flex",
-              alignItems: "center",
-              gap: 5,
-              padding: "5px 14px",
-              borderRadius: 20,
-              background: "rgba(124,92,252,0.92)",
-              border: "none",
-              color: "white",
-              fontSize: 11,
-              fontWeight: 600,
-              cursor: "pointer",
-              whiteSpace: "nowrap",
-              zIndex: 20,
-              boxShadow: "0 4px 20px rgba(124,92,252,0.45)",
-              fontFamily: "inherit",
-              letterSpacing: 0.1,
-            }}
-          >
-            ✕ Done
-          </button>
-        )}
-
+      <div
+        onClick={onClick}
+        style={{
+          width: PHONE_W * zoom,
+          height: PHONE_H * zoom,
+          position: "relative",
+          flexShrink: 0,
+          cursor: "pointer",
+          transition: "transform 0.2s ease",
+          transform: hovered ? "translateY(-5px)" : "translateY(0)",
+        }}
+      >
         {/* Natural-size phone, CSS-scaled */}
         <div style={{
           position: "absolute",
@@ -395,8 +335,8 @@ function PhoneCard({
           <PhoneMockup>
             {/*
               Render at 390×844 (natural mobile viewport) then CSS-scale to fit
-              the screen glass. This lets the browser correctly map pointer
-              coordinates into the iframe's own 390px coordinate space.
+              the screen glass. pointer-events: auto so the user can scroll and
+              tap directly — no overlay, no mode switching.
             */}
             <iframe
               srcDoc={screen.html}
@@ -408,54 +348,12 @@ function PhoneCard({
                 display: "block",
                 transform: `scale(${IFRAME_SCALE})`,
                 transformOrigin: "top left",
-                pointerEvents: isInteracting ? "auto" : "none",
+                pointerEvents: "auto",
               }}
               title={screen.name}
             />
           </PhoneMockup>
         </div>
-
-        {/* ── Click to interact overlay — browse mode, active phone, on hover ── */}
-        {!isInteracting && isActive && hovered && (
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 15,
-              borderRadius: PHONE_W * zoom * 0.18,
-              background: "rgba(0,0,0,0.22)",
-              cursor: "pointer",
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-              onStartInteract();
-            }}
-          >
-            <div style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 7,
-              padding: "8px 16px",
-              borderRadius: 20,
-              background: "rgba(14,14,22,0.90)",
-              border: "1px solid rgba(255,255,255,0.14)",
-              backdropFilter: "blur(12px)",
-              WebkitBackdropFilter: "blur(12px)",
-              boxShadow: "0 4px 24px rgba(0,0,0,0.4)",
-            }}>
-              <svg width="11" height="11" viewBox="0 0 11 11" fill="none" style={{ flexShrink: 0 }}>
-                <circle cx="5.5" cy="5.5" r="4.5" stroke="rgba(255,255,255,0.5)" strokeWidth="1.1" />
-                <path d="M4 5.5l1.5 1.5L8 4" stroke="rgba(255,255,255,0.5)" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              <span style={{ fontSize: 11.5, color: "rgba(255,255,255,0.82)", fontWeight: 500, fontFamily: "inherit" }}>
-                Click to interact
-              </span>
-            </div>
-          </div>
-        )}
 
         {/* Selection ring */}
         <div style={{

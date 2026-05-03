@@ -38,6 +38,12 @@ function BuilderLayoutInner() {
   const handleSendRef = useRef<((content?: string) => Promise<void>) | null>(null);
   const autoFiredRef = useRef(false);
 
+  // Always start with an empty canvas — clear any persisted sleekApp
+  useEffect(() => {
+    setSleekApp(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const resolveThinking = (thinkingId: string, content: string) => {
     setMessages((prev) =>
       prev.map((m) =>
