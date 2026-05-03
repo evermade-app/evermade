@@ -108,8 +108,6 @@ function ShareModal({ previewUrl, onClose }: { previewUrl: string; onClose: () =
 }
 
 const CENTER_ITEMS = [
-  { id: "history",  icon: HistoryIcon,  title: "Version history" },
-  { id: "sidebar",  icon: SidebarIcon,  title: "Toggle sidebar" },
   { id: "grid",     icon: GridIcon,     title: "Components" },
   { id: "preview",  icon: EyeIcon,      title: "Preview",  label: "Preview", active: true },
   { id: "code",     icon: CodeIcon,     title: "Code" },
