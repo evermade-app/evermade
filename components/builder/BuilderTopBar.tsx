@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useEditor } from "@/lib/editor/EditorContext";
 import QRCode from "qrcode";
+import ProjectDashboard from "./ProjectDashboard";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
@@ -108,15 +109,16 @@ function ShareModal({ previewUrl, onClose }: { previewUrl: string; onClose: () =
 }
 
 const CENTER_ITEMS = [
-  { id: "grid",     icon: GridIcon,     title: "Components" },
-  { id: "preview",  icon: EyeIcon,      title: "Preview",  label: "Preview", active: true },
-  { id: "code",     icon: CodeIcon,     title: "Code" },
-  { id: "database", icon: DatabaseIcon, title: "Database" },
-  { id: "cloud",    icon: CloudIcon,    title: "Deploy" },
+  { id: "dashboard", icon: GridIcon,     title: "Dashboard", label: "Dashboard" },
+  { id: "preview",   icon: EyeIcon,      title: "Preview",   label: "Preview", active: true },
+  { id: "code",      icon: CodeIcon,     title: "Code" },
+  { id: "database",  icon: DatabaseIcon, title: "Database" },
+  { id: "cloud",     icon: CloudIcon,    title: "Deploy" },
 ];
 
 export default function BuilderTopBar() {
   const [activeTab, setActiveTab] = useState("preview");
+  const [showDashboard, setShowDashboard] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [exporting, setExporting] = useState<"idle" | "generating" | "packaging">("idle");
@@ -256,13 +258,16 @@ export default function BuilderTopBar() {
         {CENTER_ITEMS.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
+          const handleClick = item.id === "dashboard"
+            ? () => setShowDashboard(true)
+            : () => setActiveTab(item.id);
 
           if (item.label) {
-            // Full pill tab (Preview)
+            // Full pill tab (Preview / Dashboard)
             return (
               <button
                 key={item.id}
-                onClick={() => setActiveTab(item.id)}
+                onClick={handleClick}
                 title={item.title}
                 style={{
                   display: "flex", alignItems: "center", gap: 6,
@@ -290,7 +295,7 @@ export default function BuilderTopBar() {
           return (
             <button
               key={item.id}
-              onClick={() => setActiveTab(item.id)}
+              onClick={handleClick}
               title={item.title}
               style={{
                 width: 32, height: 32,
@@ -433,6 +438,11 @@ export default function BuilderTopBar() {
       <ShareModal previewUrl={shareUrl!} onClose={() => setShareUrl(null)} />
     )}
 
+    {/* Dashboard modal */}
+    {showDashboard && (
+      <ProjectDashboard onClose={() => setShowDashboard(false)} />
+    )}
+
     {/* Export error toast */}
     {exportError && (
       <div style={{
@@ -537,22 +547,6 @@ function TopIconBtn({
 
 // ── Center icons ──────────────────────────────────────────────────────────────
 
-function HistoryIcon({ active }: { active?: boolean }) {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2 : 1.7} strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-      <path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>
-    </svg>
-  );
-}
-function SidebarIcon({ active }: { active?: boolean }) {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2 : 1.7} strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="3" width="18" height="18" rx="2"/>
-      <path d="M9 3v18"/>
-    </svg>
-  );
-}
 function GridIcon({ active }: { active?: boolean }) {
   return (
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={active ? 2 : 1.7} strokeLinecap="round" strokeLinejoin="round">
