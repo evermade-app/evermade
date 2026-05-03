@@ -271,7 +271,7 @@ export default function ShareEvermadeModal({ onClose }: { onClose: () => void })
 
           {/* Badge pill */}
           <div style={{
-            position: "absolute", bottom: 48, left: 22,
+            position: "absolute", top: 16, left: 16,
             display: "inline-flex", alignItems: "center", gap: 6,
             padding: "5px 12px", borderRadius: 99,
             background: "rgba(20,10,30,0.75)",
