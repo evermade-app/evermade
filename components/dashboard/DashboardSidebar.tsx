@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
+import PricingModal from "./PricingModal";
 
 const SIDEBAR_WIDTH = 258;
 const RAIL_WIDTH = 52;
@@ -261,6 +262,7 @@ function Divider() {
 export default function DashboardSidebar() {
   const [open, setOpen] = useState(true);
   const [projectsExpanded, setProjectsExpanded] = useState(true);
+  const [showPricing, setShowPricing] = useState(false);
   const { data: session } = useSession();
   const router = useRouter();
 
@@ -356,7 +358,7 @@ export default function DashboardSidebar() {
             {/* Pro button */}
             <button
               title="Upgrade to Pro"
-              onClick={() => {}}
+              onClick={() => setShowPricing(true)}
               style={{
                 width: 36, height: 36, borderRadius: 10,
                 background: "linear-gradient(135deg, #7c5cfc 0%, #4878ff 100%)",
@@ -518,7 +520,7 @@ export default function DashboardSidebar() {
           </div>
 
           <button
-            onClick={() => {}}
+            onClick={() => setShowPricing(true)}
             style={{
               width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
               gap: 8, padding: "9px 12px", borderRadius: 10,
@@ -566,6 +568,7 @@ export default function DashboardSidebar() {
           </div>
         </div>
       </aside>
+      {showPricing && <PricingModal onClose={() => setShowPricing(false)} />}
     </>
   );
 }
