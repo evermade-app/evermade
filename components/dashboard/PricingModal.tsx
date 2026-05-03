@@ -14,7 +14,7 @@ const CheckIcon = () => (
 const DimCheckIcon = () => (
   <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
     <circle cx="6.5" cy="6.5" r="6" fill="rgba(255,255,255,0.04)" />
-    <path d="M4.5 6.5l1.5 1.5 2.5-3" stroke="rgba(255,255,255,0.2)" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M4.5 6.5l1.5 1.5 2.5-3" stroke="rgba(255,255,255,0.2)" strokeWidth="1.3" strokeLinecap="round" />
   </svg>
 );
 
@@ -84,34 +84,30 @@ function PlanCard({
   const [hovered, setHovered] = useState(false);
 
   const border =
-    variant === "pro"
-      ? `1px solid rgba(124,92,252,${hovered ? 0.7 : 0.45})`
-      : variant === "max"
+    variant === "max"
       ? `1px solid rgba(251,191,36,${hovered ? 0.6 : 0.35})`
-      : `1px solid rgba(255,255,255,${hovered ? 0.12 : 0.07})`;
+      : variant === "free"
+      ? `1px solid rgba(255,255,255,${hovered ? 0.12 : 0.07})`
+      : "1px solid transparent"; // pro uses animated gradient border
 
   const glow =
-    variant === "pro"
-      ? `0 0 ${hovered ? 48 : 28}px rgba(124,92,252,${hovered ? 0.28 : 0.15}), 0 8px 32px rgba(0,0,0,0.5)`
-      : variant === "max"
+    variant === "max"
       ? `0 0 ${hovered ? 48 : 28}px rgba(251,191,36,${hovered ? 0.22 : 0.1}), 0 8px 32px rgba(0,0,0,0.5)`
-      : `0 8px 32px rgba(0,0,0,0.4)`;
+      : variant === "free"
+      ? `0 8px 32px rgba(0,0,0,0.4)`
+      : "none"; // pro glow is handled by animation
 
   const ctaBg =
     variant === "pro"
-      ? "linear-gradient(135deg, #7c5cfc 0%, #4878ff 100%)"
+      ? "rgba(255,255,255,0.09)"
       : variant === "max"
       ? "linear-gradient(135deg, #d97706 0%, #f59e0b 50%, #fbbf24 100%)"
       : "rgba(255,255,255,0.08)";
 
-  const ctaColor = variant === "free" ? "rgba(255,255,255,0.6)" : "white";
+  const ctaColor = variant === "max" ? "white" : "rgba(255,255,255,0.65)";
 
   const ctaShadow =
-    variant === "pro"
-      ? "0 4px 20px rgba(124,92,252,0.4)"
-      : variant === "max"
-      ? "0 4px 20px rgba(251,191,36,0.3)"
-      : "none";
+    variant === "max" ? "0 4px 20px rgba(251,191,36,0.3)" : "none";
 
   return (
     <div
@@ -122,119 +118,133 @@ function PlanCard({
         minWidth: 0,
         position: "relative",
         borderRadius: 20,
-        border,
+        padding: variant === "pro" ? 1.5 : 0, // creates gradient border space for pro
+        background: variant === "pro"
+          ? "linear-gradient(135deg, rgba(124,92,252,0.5), rgba(79,142,255,0.4), rgba(52,211,153,0.3), rgba(251,191,36,0.3), rgba(124,92,252,0.5))"
+          : "transparent",
+        backgroundSize: variant === "pro" ? "300% 300%" : "auto",
+        animation: variant === "pro" ? "rainbowBorder 6s ease infinite" : "none",
+        boxShadow: glow,
+        transform: hovered ? "translateY(-4px)" : "translateY(0)",
+        transition: "box-shadow 0.25s ease, transform 0.22s cubic-bezier(0.34,1.56,0.64,1)",
+      }}
+    >
+      {/* Inner card — clips the gradient border */}
+      <div style={{
+        borderRadius: variant === "pro" ? 19 : 20,
+        border: variant === "pro" ? "none" : border,
         background:
           variant === "pro"
-            ? "rgba(18,12,40,0.97)"
+            ? "rgba(11,11,20,0.98)"
             : variant === "max"
             ? "rgba(18,14,8,0.97)"
             : "rgba(12,12,18,0.97)",
-        boxShadow: glow,
         padding: "28px 24px 24px",
         display: "flex",
         flexDirection: "column",
-        transition: "box-shadow 0.25s ease, border-color 0.25s ease, transform 0.22s cubic-bezier(0.34,1.56,0.64,1)",
-        transform: hovered ? "translateY(-4px)" : "translateY(0)",
-        cursor: "default",
-      }}
-    >
-      {/* Badge */}
-      {badge && (
-        <div style={{
-          position: "absolute",
-          top: -12,
-          left: "50%",
-          transform: "translateX(-50%)",
-          padding: "4px 12px",
-          borderRadius: 99,
-          background: variant === "pro"
-            ? "linear-gradient(135deg, #7c5cfc, #4878ff)"
-            : "linear-gradient(135deg, #d97706, #fbbf24)",
-          fontSize: 10,
-          fontWeight: 800,
-          color: "white",
-          letterSpacing: 0.8,
-          textTransform: "uppercase",
-          whiteSpace: "nowrap",
-          boxShadow: variant === "pro"
-            ? "0 4px 14px rgba(124,92,252,0.5)"
-            : "0 4px 14px rgba(251,191,36,0.4)",
-        }}>
-          {badge}
-        </div>
-      )}
-
-      {/* Plan name */}
-      <div style={{
-        fontSize: variant === "free" ? 13 : 11,
-        fontWeight: 700,
-        letterSpacing: variant === "free" ? -0.1 : 1.2,
-        textTransform: variant === "free" ? "none" : "uppercase",
-        color: variant === "pro"
-          ? "rgba(160,140,255,0.9)"
-          : variant === "max"
-          ? "rgba(251,191,36,0.85)"
-          : "rgba(255,255,255,0.35)",
-        marginBottom: 10,
+        height: "100%",
+        boxSizing: "border-box",
+        position: "relative",
       }}>
-        {name}
-      </div>
 
-      {/* Price */}
-      <div style={{ display: "flex", alignItems: "flex-end", gap: 4, marginBottom: 6 }}>
-        {variant === "free" ? (
-          <span style={{ fontSize: 38, fontWeight: 800, color: "rgba(255,255,255,0.88)", letterSpacing: -2, lineHeight: 1 }}>
-            Free
-          </span>
-        ) : (
-          <>
-            <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.4)", marginBottom: 8 }}>$</span>
-            <span style={{ fontSize: 44, fontWeight: 800, letterSpacing: -3, lineHeight: 1, color: "rgba(255,255,255,0.92)" }}>
-              {price}
-            </span>
-            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginBottom: 8, letterSpacing: -0.2 }}>/month</span>
-          </>
+        {/* Badge */}
+        {badge && (
+          <div style={{
+            position: "absolute",
+            top: -12,
+            left: "50%",
+            transform: "translateX(-50%)",
+            padding: "4px 12px",
+            borderRadius: 99,
+            background: variant === "pro"
+              ? "linear-gradient(135deg, rgba(124,92,252,0.85), rgba(79,142,255,0.8), rgba(52,211,153,0.7))"
+              : "linear-gradient(135deg, #d97706, #fbbf24)",
+            fontSize: 10,
+            fontWeight: 800,
+            color: "white",
+            letterSpacing: 0.8,
+            textTransform: "uppercase",
+            whiteSpace: "nowrap",
+            boxShadow: variant === "pro"
+              ? "0 4px 14px rgba(79,142,255,0.4)"
+              : "0 4px 14px rgba(251,191,36,0.4)",
+          }}>
+            {badge}
+          </div>
         )}
-      </div>
 
-      {/* Tagline */}
-      <div style={{
-        fontSize: 12.5,
-        color: "rgba(255,255,255,0.38)",
-        marginBottom: 20,
-        letterSpacing: -0.1,
-        lineHeight: 1.4,
-      }}>
-        {tagline}
-      </div>
-
-      {/* CTA */}
-      <button
-        style={{
-          width: "100%",
-          padding: "11px 0",
-          borderRadius: 12,
-          border: variant === "free" ? "1px solid rgba(255,255,255,0.1)" : "none",
-          background: ctaBg,
-          color: ctaColor,
-          fontSize: 13.5,
+        {/* Plan name */}
+        <div style={{
+          fontSize: variant === "free" ? 13 : 11,
           fontWeight: 700,
-          cursor: "pointer",
-          fontFamily: "inherit",
-          letterSpacing: -0.2,
-          boxShadow: ctaShadow,
-          transition: "opacity 0.14s ease, box-shadow 0.14s ease",
-          marginBottom: 22,
-        }}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.88"; }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "1"; }}
-      >
-        {cta}
-      </button>
+          letterSpacing: variant === "free" ? -0.1 : 1.2,
+          textTransform: variant === "free" ? "none" : "uppercase",
+          color: variant === "pro"
+            ? "rgba(255,255,255,0.45)"
+            : variant === "max"
+            ? "rgba(251,191,36,0.85)"
+            : "rgba(255,255,255,0.35)",
+          marginBottom: 10,
+        }}>
+          {name}
+        </div>
 
-      {/* Features */}
-      <div style={{ flex: 1 }}>
-        {features}
+        {/* Price */}
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 4, marginBottom: 6 }}>
+          {variant === "free" ? (
+            <span style={{ fontSize: 38, fontWeight: 800, color: "rgba(255,255,255,0.88)", letterSpacing: -2, lineHeight: 1 }}>
+              Free
+            </span>
+          ) : (
+            <>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.4)", marginBottom: 8 }}>$</span>
+              <span style={{ fontSize: 44, fontWeight: 800, letterSpacing: -3, lineHeight: 1, color: "rgba(255,255,255,0.92)" }}>
+                {price}
+              </span>
+              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", marginBottom: 8, letterSpacing: -0.2 }}>/month</span>
+            </>
+          )}
+        </div>
+
+        {/* Tagline */}
+        <div style={{
+          fontSize: 12.5,
+          color: "rgba(255,255,255,0.38)",
+          marginBottom: 20,
+          letterSpacing: -0.1,
+          lineHeight: 1.4,
+        }}>
+          {tagline}
+        </div>
+
+        {/* CTA */}
+        <button
+          style={{
+            width: "100%",
+            padding: "11px 0",
+            borderRadius: 12,
+            border: variant !== "max" ? "1px solid rgba(255,255,255,0.1)" : "none",
+            background: ctaBg,
+            color: ctaColor,
+            fontSize: 13.5,
+            fontWeight: 700,
+            cursor: "pointer",
+            fontFamily: "inherit",
+            letterSpacing: -0.2,
+            boxShadow: ctaShadow,
+            transition: "opacity 0.14s ease",
+            marginBottom: 22,
+          }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.8"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "1"; }}
+        >
+          {cta}
+        </button>
+
+        {/* Features */}
+        <div style={{ flex: 1 }}>
+          {features}
+        </div>
       </div>
     </div>
   );
@@ -251,12 +261,26 @@ export default function PricingModal({ onClose }: { onClose: () => void }) {
         background: "rgba(0,0,0,0.85)",
         backdropFilter: "blur(20px)",
         WebkitBackdropFilter: "blur(20px)",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        padding: "24px 20px",
+        display: "flex",
+        alignItems: "flex-start",
+        justifyContent: "center",
+        padding: "52px 20px 40px",
         fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Geist', sans-serif",
         overflowY: "auto",
       }}
     >
+      <style>{`
+        @keyframes pricingIn {
+          from { opacity: 0; transform: translateY(24px) scale(0.97); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes rainbowBorder {
+          0%   { background-position: 0% 50%; }
+          50%  { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+      `}</style>
+
       <div
         onClick={(e) => e.stopPropagation()}
         style={{
@@ -264,19 +288,11 @@ export default function PricingModal({ onClose }: { onClose: () => void }) {
           maxWidth: 980,
           display: "flex",
           flexDirection: "column",
-          gap: 0,
           animation: "pricingIn 0.28s cubic-bezier(0.22,1,0.36,1) both",
         }}
       >
-        <style>{`
-          @keyframes pricingIn {
-            from { opacity: 0; transform: translateY(20px) scale(0.97); }
-            to   { opacity: 1; transform: translateY(0) scale(1); }
-          }
-        `}</style>
-
         {/* ── Header ── */}
-        <div style={{ textAlign: "center", marginBottom: 48, position: "relative" }}>
+        <div style={{ textAlign: "center", marginBottom: 52, position: "relative", padding: "0 40px" }}>
           <button
             onClick={onClose}
             style={{
@@ -294,32 +310,31 @@ export default function PricingModal({ onClose }: { onClose: () => void }) {
           <div style={{
             display: "inline-flex", alignItems: "center", gap: 6,
             padding: "5px 14px", borderRadius: 99,
-            background: "rgba(124,92,252,0.12)",
-            border: "1px solid rgba(124,92,252,0.25)",
-            marginBottom: 18,
+            background: "rgba(124,92,252,0.1)",
+            border: "1px solid rgba(124,92,252,0.22)",
+            marginBottom: 22,
           }}>
-            <span style={{ fontSize: 12, color: "rgba(160,140,255,0.85)", fontWeight: 600, letterSpacing: 0.2 }}>
+            <span style={{ fontSize: 12, color: "rgba(160,140,255,0.8)", fontWeight: 600, letterSpacing: 0.2 }}>
               Simple pricing · Cancel anytime
             </span>
           </div>
 
           <h2 style={{
-            fontSize: 40,
+            fontSize: 44,
             fontWeight: 800,
-            letterSpacing: -2,
-            margin: 0,
+            letterSpacing: -2.5,
+            margin: "0 0 14px",
             background: "linear-gradient(135deg, #ffffff 0%, rgba(180,200,255,0.85) 100%)",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
             backgroundClip: "text",
             lineHeight: 1.1,
-            marginBottom: 12,
           } as React.CSSProperties}>
             Build faster. Ship smarter.
           </h2>
 
           <p style={{
-            fontSize: 15, color: "rgba(255,255,255,0.38)", margin: 0,
+            fontSize: 15, color: "rgba(255,255,255,0.36)", margin: 0,
             letterSpacing: -0.2, lineHeight: 1.5,
           }}>
             From your first prototype to the App Store — Evermade scales with you.
@@ -427,14 +442,11 @@ function TeamBanner() {
         boxShadow: hov ? "0 0 40px rgba(79,142,255,0.12)" : "none",
       }}
     >
-      {/* Left */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
-          <div style={{
-            fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase",
-            color: "rgba(79,142,255,0.7)",
-          }}>Team</div>
-        </div>
+        <div style={{
+          fontSize: 11, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase",
+          color: "rgba(79,142,255,0.7)", marginBottom: 5,
+        }}>Team</div>
         <div style={{ fontSize: 15, fontWeight: 700, color: "rgba(255,255,255,0.88)", letterSpacing: -0.3, marginBottom: 4 }}>
           Scale your team&apos;s productivity
         </div>
@@ -443,11 +455,7 @@ function TeamBanner() {
         </div>
       </div>
 
-      {/* Features */}
-      <div style={{
-        display: "flex", gap: 24, flexShrink: 0,
-        flexWrap: "wrap", justifyContent: "flex-end",
-      }}>
+      <div style={{ display: "flex", gap: 24, flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
         {["Per-seat pricing", "Shared credit pool", "Roles & permissions", "Unlimited viewers", "VIP support"].map((f) => (
           <div key={f} style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <div style={{ width: 5, height: 5, borderRadius: "50%", background: "rgba(79,142,255,0.6)", flexShrink: 0 }} />
@@ -456,22 +464,15 @@ function TeamBanner() {
         ))}
       </div>
 
-      {/* CTA */}
       <button
         style={{
-          flexShrink: 0,
-          padding: "10px 22px",
-          borderRadius: 12,
+          flexShrink: 0, padding: "10px 22px", borderRadius: 12,
           border: "1px solid rgba(79,142,255,0.3)",
           background: "rgba(79,142,255,0.1)",
           color: "rgba(120,175,255,0.9)",
-          fontSize: 13,
-          fontWeight: 700,
-          cursor: "pointer",
-          fontFamily: "inherit",
-          letterSpacing: -0.2,
-          transition: "all 0.14s ease",
-          whiteSpace: "nowrap",
+          fontSize: 13, fontWeight: 700, cursor: "pointer",
+          fontFamily: "inherit", letterSpacing: -0.2,
+          transition: "all 0.14s ease", whiteSpace: "nowrap",
         }}
         onMouseEnter={(e) => {
           (e.currentTarget as HTMLButtonElement).style.background = "rgba(79,142,255,0.18)";
