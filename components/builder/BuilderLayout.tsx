@@ -20,6 +20,8 @@ function now() {
   return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+const CHAT_STORAGE_KEY = "evermade-chat-v1";
+
 function BuilderLayoutInner() {
   const { hydrated, setSleekApp } = useEditor();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -28,11 +30,39 @@ function BuilderLayoutInner() {
   const handleSendRef = useRef<((content?: string) => Promise<void>) | null>(null);
   const autoFiredRef = useRef(false);
 
-  // Always start with an empty canvas
+  // On mount: if a pending prompt exists → new project (clear everything)
+  //           otherwise → returning to existing project (restore saved chat)
   useEffect(() => {
-    setSleekApp(null);
+    const pending = localStorage.getItem("evermade-pending-prompt");
+    if (pending) {
+      // New generation incoming — wipe any stale state
+      setSleekApp(null);
+      setMessages([]);
+      localStorage.removeItem(CHAT_STORAGE_KEY);
+    } else {
+      // Returning to existing project — restore chat history
+      try {
+        const raw = localStorage.getItem(CHAT_STORAGE_KEY);
+        if (raw) {
+          const saved = JSON.parse(raw) as Message[];
+          if (Array.isArray(saved) && saved.length > 0) {
+            // Strip any stuck "thinking" bubbles from a previous session
+            setMessages(saved.filter((m) => !m.isThinking));
+          }
+        }
+      } catch { /* ignore */ }
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Persist chat messages whenever they change (skip thinking bubbles)
+  useEffect(() => {
+    const settled = messages.filter((m) => !m.isThinking);
+    if (settled.length === 0) return;
+    try {
+      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(settled));
+    } catch { /* quota exceeded */ }
+  }, [messages]);
 
   const resolveThinking = (thinkingId: string, content: string) => {
     setMessages((prev) =>

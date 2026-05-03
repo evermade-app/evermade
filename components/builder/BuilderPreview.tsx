@@ -2,26 +2,19 @@
 
 import { useRef, useState, useEffect, useCallback } from "react";
 import { useEditor } from "@/lib/editor/EditorContext";
-import PhoneMockup from "./PhoneMockup";
-import PreviewScreen from "./PreviewScreen";
 import type { SleekPreviewScreen } from "@/lib/editor/EditorContext";
 
 // ── Dimensions ────────────────────────────────────────────────────────────────
-const PHONE_W = 292;
-const PHONE_H = 628;
+const CARD_W = 390;   // natural mobile viewport width
+const CARD_H = 844;   // natural mobile viewport height
+const CARD_RADIUS = 32;
 const GAP = 44;
-const PADDING_X = 90;
-const PADDING_Y = 72;
+const PADDING_X = 80;
+const PADDING_Y = 56;
 const DEFAULT_ZOOM = 0.74;
 
-// Screen glass inset from PhoneMockup: BORDER (2.5) + BEZEL (6) = 8.5px per side
-const SCREEN_INSET = 8.5;
-const SCREEN_W = PHONE_W - 2 * SCREEN_INSET; // 275px
-// Scale factor so iframe renders at 390px viewport → fits screen glass
-const IFRAME_SCALE = SCREEN_W / 390; // ~0.705
-
 // ─────────────────────────────────────────────────────────────────────────────
-// SLEEK CANVAS — multi-phone horizontal canvas (Figma / Sleek Design style)
+// SLEEK CANVAS — multi-screen horizontal canvas (no phone mockup)
 // ─────────────────────────────────────────────────────────────────────────────
 function SleekCanvas() {
   const { sleekApp, setSleekActiveIndex, setSleekApp } = useEditor();
@@ -37,7 +30,7 @@ function SleekCanvas() {
     const onWheel = (e: WheelEvent) => {
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
-        setZoom((z) => Math.min(1.3, Math.max(0.28, z - e.deltaY * 0.0012)));
+        setZoom((z) => Math.min(1.4, Math.max(0.3, z - e.deltaY * 0.001)));
       }
     };
     el.addEventListener("wheel", onWheel, { passive: false });
@@ -57,12 +50,10 @@ function SleekCanvas() {
     return () => window.removeEventListener("keydown", onKey);
   }, [sleekApp, setSleekActiveIndex]);
 
-  // Drag-to-pan — only triggers on canvas background, never on a phone card
+  // Drag-to-pan on canvas background only
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     const el = scrollRef.current;
-    if (!el) return;
-    // Ignore clicks originating from inside a phone card (bezel or iframe area)
-    if ((e.target as HTMLElement).closest("[data-phone]")) return;
+    if (!el || (e.target as HTMLElement).closest("[data-phone]")) return;
     isDragging.current = true;
     dragOrigin.current = { x: e.pageX, scrollLeft: el.scrollLeft };
     el.style.cursor = "grabbing";
@@ -71,8 +62,7 @@ function SleekCanvas() {
 
   const onMouseMove = useCallback((e: React.MouseEvent) => {
     if (!isDragging.current || !scrollRef.current) return;
-    const dx = e.pageX - dragOrigin.current.x;
-    scrollRef.current.scrollLeft = dragOrigin.current.scrollLeft - dx;
+    scrollRef.current.scrollLeft = dragOrigin.current.scrollLeft - (e.pageX - dragOrigin.current.x);
   }, []);
 
   const stopDrag = useCallback(() => {
@@ -80,42 +70,38 @@ function SleekCanvas() {
     if (scrollRef.current) scrollRef.current.style.cursor = "";
   }, []);
 
-  const scaledW = PHONE_W * zoom;
   const count = sleekApp?.screens.length ?? 3;
-  const canvasW = PADDING_X * 2 + scaledW * count + GAP * (count - 1);
+  const canvasW = PADDING_X * 2 + CARD_W * zoom * count + GAP * (count - 1);
 
   const fitAll = () => {
-    if (!scrollRef.current || !sleekApp) return;
-    const containerW = scrollRef.current.clientWidth;
-    const containerH = scrollRef.current.clientHeight;
-    const zoomW = (containerW - PADDING_X * 2) / (PHONE_W * count + GAP * (count - 1));
-    const zoomH = (containerH - PADDING_Y * 2) / PHONE_H;
-    setZoom(Math.min(1, zoomW, zoomH));
+    if (!scrollRef.current) return;
+    const cW = scrollRef.current.clientWidth;
+    const cH = scrollRef.current.clientHeight;
+    const zW = (cW - PADDING_X * 2) / (CARD_W * count + GAP * (count - 1));
+    const zH = (cH - PADDING_Y * 2) / CARD_H;
+    setZoom(Math.min(1.2, zW, zH));
   };
 
   return (
     <div style={{ flex: 1, position: "relative", overflow: "hidden", background: "#08080E" }}>
 
-      {/* ── Canvas grid background ── */}
+      {/* Grid background */}
       <div style={{
-        position: "absolute",
-        inset: 0,
-        backgroundImage: `linear-gradient(rgba(255,255,255,0.028) 1px, transparent 1px),
-                          linear-gradient(90deg, rgba(255,255,255,0.028) 1px, transparent 1px)`,
+        position: "absolute", inset: 0,
+        backgroundImage: `linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+                          linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px)`,
         backgroundSize: "32px 32px",
         pointerEvents: "none",
       }} />
 
-      {/* ── Subtle vignette ── */}
+      {/* Vignette */}
       <div style={{
-        position: "absolute",
-        inset: 0,
-        background: "radial-gradient(ellipse 90% 90% at 50% 50%, transparent 60%, rgba(0,0,0,0.45) 100%)",
-        pointerEvents: "none",
-        zIndex: 1,
+        position: "absolute", inset: 0,
+        background: "radial-gradient(ellipse 90% 90% at 50% 50%, transparent 55%, rgba(0,0,0,0.5) 100%)",
+        pointerEvents: "none", zIndex: 1,
       }} />
 
-      {/* ── Scrollable canvas ── */}
+      {/* Scrollable canvas */}
       <div
         ref={scrollRef}
         onMouseDown={onMouseDown}
@@ -123,24 +109,20 @@ function SleekCanvas() {
         onMouseUp={stopDrag}
         onMouseLeave={stopDrag}
         style={{
-          position: "absolute",
-          inset: 0,
-          overflowX: "auto",
-          overflowY: "hidden",
-          cursor: "grab",
-          zIndex: 2,
+          position: "absolute", inset: 0,
+          overflowX: "auto", overflowY: "hidden",
+          cursor: "grab", zIndex: 2,
           scrollbarWidth: "none",
-          WebkitOverflowScrolling: "touch",
         } as React.CSSProperties}
       >
         <style>{`
           @keyframes phoneSlideUp {
-            from { opacity: 0; transform: translateY(24px); }
+            from { opacity: 0; transform: translateY(28px); }
             to   { opacity: 1; transform: translateY(0); }
           }
           @keyframes shimmer {
             0%   { background-position: -400px 0; }
-            100% { background-position: 400px 0; }
+            100% { background-position:  400px 0; }
           }
         `}</style>
 
@@ -155,7 +137,7 @@ function SleekCanvas() {
         }}>
           {sleekApp ? (
             sleekApp.screens.map((screen, i) => (
-              <PhoneCard
+              <ScreenCard
                 key={screen.id}
                 screen={screen}
                 index={i}
@@ -165,84 +147,62 @@ function SleekCanvas() {
               />
             ))
           ) : (
-            [0, 1, 2].map((i) => <SkeletonPhone key={i} index={i} zoom={zoom} />)
+            [0, 1, 2].map((i) => <SkeletonCard key={i} index={i} zoom={zoom} />)
           )}
         </div>
       </div>
 
-      {/* ── Zoom controls — bottom left ── */}
+      {/* Zoom controls — bottom left */}
       <div style={{
-        position: "absolute",
-        bottom: 20,
-        left: 20,
-        zIndex: 10,
-        display: "flex",
-        alignItems: "center",
-        gap: 2,
-        background: "rgba(14,14,22,0.9)",
+        position: "absolute", bottom: 20, left: 20, zIndex: 10,
+        display: "flex", alignItems: "center", gap: 2,
+        background: "rgba(14,14,22,0.92)",
         border: "1px solid rgba(255,255,255,0.09)",
         borderRadius: 9,
         backdropFilter: "blur(12px)",
         WebkitBackdropFilter: "blur(12px)",
         overflow: "hidden",
       }}>
-        <ZoomBtn onClick={() => setZoom((z) => Math.max(0.28, z - 0.1))} title="Zoom out">
+        <ZoomBtn onClick={() => setZoom((z) => Math.max(0.3, z - 0.1))} title="Zoom out">
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
             <path d="M2.5 6.5h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
           </svg>
         </ZoomBtn>
-
         <button
           onClick={() => setZoom(DEFAULT_ZOOM)}
           title="Reset zoom"
           style={{
-            background: "none",
-            border: "none",
-            color: "rgba(255,255,255,0.42)",
-            fontSize: 10.5,
-            fontWeight: 600,
-            fontFamily: "inherit",
-            cursor: "pointer",
-            padding: "5px 8px",
-            minWidth: 44,
-            textAlign: "center",
-            letterSpacing: 0.2,
+            background: "none", border: "none",
+            color: "rgba(255,255,255,0.42)", fontSize: 10.5,
+            fontWeight: 600, fontFamily: "inherit", cursor: "pointer",
+            padding: "5px 8px", minWidth: 44, textAlign: "center", letterSpacing: 0.2,
           }}
         >
           {Math.round(zoom * 100)}%
         </button>
-
-        <ZoomBtn onClick={() => setZoom((z) => Math.min(1.3, z + 0.1))} title="Zoom in">
+        <ZoomBtn onClick={() => setZoom((z) => Math.min(1.4, z + 0.1))} title="Zoom in">
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
             <path d="M6.5 2.5v8M2.5 6.5h8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
           </svg>
         </ZoomBtn>
-
         <div style={{ width: 1, height: 22, background: "rgba(255,255,255,0.07)", flexShrink: 0 }} />
-
         <ZoomBtn onClick={fitAll} title="Fit all screens">
           <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-            <path d="M1 4.5V2a1 1 0 0 1 1-1h2.5M9.5 1H11a1 1 0 0 1 1 1v2.5M12 8.5V11a1 1 0 0 1-1 1H8.5M3.5 12H2a1 1 0 0 1-1-1V8.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+            <path d="M1 4.5V2a1 1 0 0 1 1-1h2.5M9.5 1H11a1 1 0 0 1 1 1v2.5M12 8.5V11a1 1 0 0 1-1 1H8.5M3.5 12H2a1 1 0 0 1-1-1V8.5"
+              stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
           </svg>
         </ZoomBtn>
       </div>
 
-      {/* ── Screen count badge — top center ── */}
+      {/* App badge — top center */}
       {sleekApp && (
         <div style={{
-          position: "absolute",
-          top: 16,
-          left: "50%",
-          transform: "translateX(-50%)",
-          zIndex: 10,
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          background: "rgba(14,14,22,0.85)",
+          position: "absolute", top: 16, left: "50%", transform: "translateX(-50%)",
+          zIndex: 10, display: "flex", alignItems: "center", gap: 8,
+          background: "rgba(14,14,22,0.88)",
           border: "1px solid rgba(255,255,255,0.08)",
           borderRadius: 8,
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
+          backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
           padding: "5px 12px",
         }}>
           <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#7c5cfc", boxShadow: "0 0 8px #7c5cfc" }} />
@@ -256,20 +216,13 @@ function SleekCanvas() {
           <button
             onClick={() => setSleekApp(null)}
             style={{
-              background: "none",
-              border: "none",
-              color: "rgba(255,255,255,0.2)",
-              cursor: "pointer",
-              fontSize: 13,
-              padding: "0 0 0 4px",
-              display: "flex",
-              alignItems: "center",
-              lineHeight: 1,
+              background: "none", border: "none",
+              color: "rgba(255,255,255,0.2)", cursor: "pointer",
+              fontSize: 13, padding: "0 0 0 4px",
+              display: "flex", alignItems: "center", lineHeight: 1,
             }}
             title="Clear app"
-          >
-            ×
-          </button>
+          >×</button>
         </div>
       )}
     </div>
@@ -277,9 +230,9 @@ function SleekCanvas() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PHONE CARD — one phone mockup with always-interactive iframe
+// SCREEN CARD — full-bleed iframe, no phone mockup
 // ─────────────────────────────────────────────────────────────────────────────
-function PhoneCard({
+function ScreenCard({
   screen,
   index,
   isActive,
@@ -305,94 +258,58 @@ function PhoneCard({
         alignItems: "center",
         gap: 14,
         flexShrink: 0,
-        animation: `phoneSlideUp 0.45s cubic-bezier(0.22,1,0.36,1) ${index * 80}ms both`,
+        animation: `phoneSlideUp 0.45s cubic-bezier(0.22,1,0.36,1) ${index * 70}ms both`,
       }}
     >
-      {/* Scaled phone wrapper */}
+      {/* Card */}
       <div
         onClick={onClick}
         style={{
-          width: PHONE_W * zoom,
-          height: PHONE_H * zoom,
+          width: CARD_W * zoom,
+          height: CARD_H * zoom,
+          borderRadius: CARD_RADIUS * zoom,
+          overflow: "hidden",
           position: "relative",
           flexShrink: 0,
           cursor: "pointer",
-          transition: "transform 0.2s ease",
-          transform: hovered ? "translateY(-5px)" : "translateY(0)",
+          transition: "transform 0.2s ease, box-shadow 0.15s ease",
+          transform: hovered ? "translateY(-6px)" : "translateY(0)",
+          boxShadow: isActive
+            ? `0 0 0 ${2 * zoom}px rgba(124,92,252,0.9), 0 0 0 ${6 * zoom}px rgba(124,92,252,0.15), 0 ${24 * zoom}px ${60 * zoom}px rgba(0,0,0,0.7)`
+            : hovered
+              ? `0 0 0 ${1.5 * zoom}px rgba(255,255,255,0.15), 0 ${20 * zoom}px ${50 * zoom}px rgba(0,0,0,0.55)`
+              : `0 ${16 * zoom}px ${40 * zoom}px rgba(0,0,0,0.45)`,
         }}
       >
-        {/* Natural-size phone, CSS-scaled */}
+        {/* Natural-size iframe, CSS-scaled to fit */}
         <div style={{
-          position: "absolute",
-          top: 0,
-          left: 0,
-          width: PHONE_W,
-          height: PHONE_H,
+          width: CARD_W,
+          height: CARD_H,
           transform: `scale(${zoom})`,
           transformOrigin: "top left",
           willChange: "transform",
+          pointerEvents: "auto",
         }}>
-          <PhoneMockup>
-            {/*
-              Render at 390×844 (natural mobile viewport) then CSS-scale to fit
-              the screen glass. pointer-events: auto so the user can scroll and
-              tap directly — no overlay, no mode switching.
-            */}
-            <iframe
-              srcDoc={screen.html}
-              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
-              style={{
-                width: 390,
-                height: 844,
-                border: "none",
-                display: "block",
-                transform: `scale(${IFRAME_SCALE})`,
-                transformOrigin: "top left",
-                pointerEvents: "auto",
-              }}
-              title={screen.name}
-            />
-          </PhoneMockup>
+          <iframe
+            srcDoc={screen.html}
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+            style={{
+              width: CARD_W,
+              height: CARD_H,
+              border: "none",
+              display: "block",
+            }}
+            title={screen.name}
+          />
         </div>
-
-        {/* Selection ring */}
-        <div style={{
-          position: "absolute",
-          inset: -3,
-          borderRadius: PHONE_W * zoom * 0.19,
-          border: isActive
-            ? "2px solid rgba(124,92,252,0.85)"
-            : hovered
-              ? "1.5px solid rgba(255,255,255,0.12)"
-              : "1.5px solid transparent",
-          boxShadow: isActive
-            ? "0 0 0 4px rgba(124,92,252,0.12), 0 0 30px rgba(124,92,252,0.22)"
-            : "none",
-          transition: "border-color 0.15s, box-shadow 0.15s",
-          pointerEvents: "none",
-        }} />
-
-        {/* Bottom shadow */}
-        <div style={{
-          position: "absolute",
-          bottom: -20,
-          left: "10%",
-          right: "10%",
-          height: 30,
-          background: "radial-gradient(ellipse, rgba(0,0,0,0.55) 0%, transparent 75%)",
-          filter: "blur(8px)",
-          pointerEvents: "none",
-        }} />
       </div>
 
       {/* Label */}
       <div style={{ textAlign: "center", userSelect: "none" }}>
         <div style={{
-          fontSize: 9,
-          fontWeight: 700,
+          fontSize: 9, fontWeight: 700,
           color: "rgba(255,255,255,0.18)",
-          letterSpacing: 1.2,
-          marginBottom: 4,
+          letterSpacing: 1.2, marginBottom: 4,
           fontFamily: "ui-monospace, 'SF Mono', monospace",
         }}>
           {String(index + 1).padStart(2, "0")}
@@ -403,18 +320,14 @@ function PhoneCard({
           color: isActive ? "rgba(255,255,255,0.88)" : "rgba(255,255,255,0.38)",
           letterSpacing: -0.1,
           transition: "color 0.15s",
-          maxWidth: PHONE_W * zoom,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
+          maxWidth: CARD_W * zoom,
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
         }}>
           {screen.name}
         </div>
         {isActive && (
           <div style={{
-            width: 20,
-            height: 2,
-            borderRadius: 1,
+            width: 20, height: 2, borderRadius: 1,
             background: "#7c5cfc",
             margin: "5px auto 0",
             boxShadow: "0 0 6px rgba(124,92,252,0.6)",
@@ -426,59 +339,45 @@ function PhoneCard({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SKELETON PHONE — shimmer placeholder when no app generated
+// SKELETON CARD — shimmer while loading
 // ─────────────────────────────────────────────────────────────────────────────
-function SkeletonPhone({ index, zoom }: { index: number; zoom: number }) {
+function SkeletonCard({ index, zoom }: { index: number; zoom: number }) {
   return (
     <div style={{
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      gap: 14,
-      flexShrink: 0,
-      opacity: 1 - index * 0.22,
+      display: "flex", flexDirection: "column", alignItems: "center",
+      gap: 14, flexShrink: 0, opacity: 1 - index * 0.22,
     }}>
       <div style={{
-        width: PHONE_W * zoom,
-        height: PHONE_H * zoom,
-        borderRadius: PHONE_W * zoom * 0.18,
+        width: CARD_W * zoom,
+        height: CARD_H * zoom,
+        borderRadius: CARD_RADIUS * zoom,
         background: "linear-gradient(90deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 100%)",
         backgroundSize: "800px 100%",
         animation: `shimmer 1.8s ease-in-out ${index * 200}ms infinite`,
         border: "1px solid rgba(255,255,255,0.06)",
       }} />
-      <div style={{
-        width: 80,
-        height: 8,
-        borderRadius: 4,
-        background: "rgba(255,255,255,0.06)",
-      }} />
+      <div style={{ width: 80, height: 8, borderRadius: 4, background: "rgba(255,255,255,0.06)" }} />
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ZOOM BUTTON helper
+// ZOOM BUTTON
 // ─────────────────────────────────────────────────────────────────────────────
 function ZoomBtn({ onClick, title, children }: { onClick: () => void; title: string; children: React.ReactNode }) {
   const [hov, setHov] = useState(false);
   return (
     <button
-      onClick={onClick}
-      title={title}
+      onClick={onClick} title={title}
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
         background: hov ? "rgba(255,255,255,0.06)" : "none",
-        border: "none",
-        cursor: "pointer",
+        border: "none", cursor: "pointer",
         color: "rgba(255,255,255,0.45)",
         padding: "6px 8px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        transition: "background 0.12s",
-        borderRadius: 5,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        transition: "background 0.12s", borderRadius: 5,
       }}
     >
       {children}
@@ -487,138 +386,8 @@ function ZoomBtn({ onClick, title, children }: { onClick: () => void; title: str
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SINGLE PHONE VIEW — original FitTrack / edit-mode preview (unchanged)
-// ─────────────────────────────────────────────────────────────────────────────
-function SinglePhoneView() {
-  const { editMode, setSelection } = useEditor();
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(1);
-
-  useEffect(() => {
-    const update = () => {
-      const el = containerRef.current;
-      if (!el) return;
-      const availH = el.clientHeight - 48;
-      const availW = el.clientWidth - 80;
-      setScale(Math.max(0.4, Math.min(1, availH / PHONE_H, availW / PHONE_W)));
-    };
-    update();
-    const ro = new ResizeObserver(update);
-    if (containerRef.current) ro.observe(containerRef.current);
-    return () => ro.disconnect();
-  }, []);
-
-  const floorOffset = Math.round((PHONE_H / 2) * scale) + 18;
-
-  return (
-    <div
-      ref={containerRef}
-      style={{
-        flex: 1,
-        height: "100%",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        position: "relative",
-        overflow: "hidden",
-      }}
-      onClick={editMode ? () => setSelection(null) : undefined}
-    >
-      {/* Grid */}
-      <div style={{
-        position: "absolute", inset: 0,
-        backgroundImage: `linear-gradient(rgba(79,142,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(79,142,255,0.06) 1px, transparent 1px)`,
-        backgroundSize: "40px 40px",
-        pointerEvents: "none",
-        maskImage: "radial-gradient(ellipse 70% 80% at 50% 50%, black 20%, transparent 100%)",
-        WebkitMaskImage: "radial-gradient(ellipse 70% 80% at 50% 50%, black 20%, transparent 100%)",
-      }} />
-
-      <div style={{
-        position: "absolute", bottom: 0, left: "50%", transform: "translateX(-50%)",
-        width: "100%", height: "55%",
-        background: "radial-gradient(ellipse 80% 80% at 50% 100%, rgba(0,60,200,0.3) 0%, rgba(0,40,140,0.12) 45%, transparent 75%)",
-        pointerEvents: "none",
-      }} />
-      <div style={{
-        position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)",
-        width: "80%", height: "35%",
-        background: "radial-gradient(ellipse 60% 60% at 50% 0%, rgba(124,92,252,0.1) 0%, transparent 70%)",
-        pointerEvents: "none",
-      }} />
-      <div style={{
-        position: "absolute", width: 600, height: 600, borderRadius: "50%",
-        background: "radial-gradient(circle, rgba(30,100,255,0.12) 0%, rgba(60,80,220,0.05) 40%, transparent 70%)",
-        pointerEvents: "none",
-        animation: "evermade-glow-pulse 5s ease-in-out infinite",
-      }} />
-
-      {/* Phone wrapper */}
-      <div style={{ position: "relative", zIndex: 2, transform: `scale(${scale})`, transformOrigin: "center center" }}>
-        {editMode && (
-          <div style={{
-            position: "absolute", top: -36, left: "50%", transform: "translateX(-50%)",
-            display: "flex", alignItems: "center", gap: 5,
-            padding: "3px 10px 3px 7px", borderRadius: 20,
-            background: "rgba(79,142,255,0.06)", border: "1px solid rgba(79,142,255,0.2)",
-            backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)",
-            whiteSpace: "nowrap", pointerEvents: "none",
-          }}>
-            <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#4f8eff", boxShadow: "0 0 8px rgba(79,142,255,1)" }} />
-            <span style={{ fontSize: 10, color: "rgba(179,210,255,0.7)", fontWeight: 500, letterSpacing: 0.2 }}>Visual Edit Active</span>
-          </div>
-        )}
-
-        <div style={{
-          position: "absolute", inset: -60, borderRadius: 120,
-          background: "radial-gradient(ellipse at 50% 60%, rgba(0,80,255,0.25) 0%, rgba(30,60,220,0.1) 50%, transparent 75%)",
-          pointerEvents: "none", zIndex: -2,
-          animation: "evermade-glow-pulse 4s ease-in-out infinite",
-        }} />
-        <div style={{
-          position: "absolute", inset: -3, borderRadius: 58,
-          border: "1.5px solid rgba(79,142,255,0.75)",
-          boxShadow: "0 0 20px rgba(79,142,255,0.7), 0 0 50px rgba(79,142,255,0.4), 0 0 100px rgba(30,80,255,0.22), inset 0 0 30px rgba(79,142,255,0.1)",
-          animation: "evermade-glow-pulse 4s ease-in-out infinite",
-          zIndex: 0, pointerEvents: "none",
-        }} />
-        <div style={{
-          position: "absolute", inset: -36, borderRadius: 90,
-          background: "radial-gradient(ellipse at center, rgba(79,142,255,0.12) 0%, rgba(124,92,252,0.06) 50%, transparent 75%)",
-          pointerEvents: "none", zIndex: -1,
-        }} />
-
-        <div style={{ position: "relative", zIndex: 1 }}>
-          <PhoneMockup>
-            <PreviewScreen />
-          </PhoneMockup>
-        </div>
-      </div>
-
-      {/* Floor glows */}
-      <div style={{
-        position: "absolute", top: "50%", left: "50%",
-        transform: `translateX(-50%) translateY(${floorOffset}px)`,
-        width: Math.round(480 * scale), height: 55, borderRadius: "50%",
-        background: "radial-gradient(ellipse, rgba(0,90,255,0.7) 0%, rgba(0,60,200,0.38) 50%, transparent 75%)",
-        filter: "blur(30px)", pointerEvents: "none", zIndex: 1,
-        animation: "evermade-glow-pulse 4s ease-in-out infinite",
-      }} />
-      <div style={{
-        position: "absolute", top: "50%", left: "50%",
-        transform: `translateX(-50%) translateY(${floorOffset + 10}px)`,
-        width: Math.round(720 * scale), height: 65, borderRadius: "50%",
-        background: "radial-gradient(ellipse, rgba(0,60,180,0.25) 0%, transparent 70%)",
-        filter: "blur(45px)", pointerEvents: "none", zIndex: 1,
-      }} />
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// ROOT EXPORT — switches between canvas and single-phone view
+// ROOT EXPORT
 // ─────────────────────────────────────────────────────────────────────────────
 export default function BuilderPreview() {
-  const { sleekApp } = useEditor();
-  return sleekApp ? <SleekCanvas /> : <SinglePhoneView />;
+  return <SleekCanvas />;
 }
