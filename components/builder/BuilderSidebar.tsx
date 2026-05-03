@@ -19,7 +19,7 @@ export default function BuilderSidebar({ messages, prompt, onPromptChange, onSen
 
   return (
     <div style={{
-      width: 420,
+      width: 280,
       flexShrink: 0,
       height: "100%",
       display: "flex",

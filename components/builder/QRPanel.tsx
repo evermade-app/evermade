@@ -11,7 +11,7 @@ function RealQRCode({ url }: { url: string }) {
   useEffect(() => {
     if (!url) return;
     QRCode.toDataURL(url, {
-      width: 168,
+      width: 140,
       margin: 1,
       color: { dark: "#0a0818", light: "#ffffff" },
       errorCorrectionLevel: "M",
@@ -22,8 +22,8 @@ function RealQRCode({ url }: { url: string }) {
   return (
     <img
       src={dataUrl}
-      width={168}
-      height={168}
+      width={140}
+      height={140}
       alt="Scan to preview on your device"
       style={{ display: "block", borderRadius: 5 }}
     />
@@ -97,21 +97,14 @@ export default function QRPanel() {
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const uploadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Fetch local IP once on mount, build preview URL with project ID
+  // Build preview URL using NEXT_PUBLIC_APP_URL or fall back to current origin
   useEffect(() => {
-    const port = window.location.port || "3000";
-    fetch("/api/local-ip")
-      .then((r) => r.json())
-      .then(({ ip }: { ip: string | null }) => {
-        if (ip) setPreviewUrl(`http://${ip}:${port}/preview/${project.id}`);
-      })
-      .catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    const base = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin;
+    setPreviewUrl(`${base}/preview/${project.id}`);
   }, [project.id]);
 
   // Upload project to server (debounced 500 ms) whenever project changes
   useEffect(() => {
-    if (!previewUrl) return;
     if (uploadTimerRef.current) clearTimeout(uploadTimerRef.current);
     uploadTimerRef.current = setTimeout(() => {
       fetch(`/api/preview/${project.id}`, {
@@ -123,12 +116,12 @@ export default function QRPanel() {
     return () => {
       if (uploadTimerRef.current) clearTimeout(uploadTimerRef.current);
     };
-  }, [project, previewUrl]);
+  }, [project]);
 
   return (
     <div
       style={{
-        width: 300,
+        width: 220,
         flexShrink: 0,
         height: "100%",
         borderLeft: "1px solid rgba(79,142,255,0.14)",
