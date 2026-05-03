@@ -61,6 +61,34 @@ type EditorContextValue = {
 
 const EditorContext = createContext<EditorContextValue | null>(null);
 
+const SLEEK_STORAGE_KEY = "evermade-sleek-app-v1";
+
+function saveSleekApp(app: SleekPreviewApp | null): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (app) {
+      localStorage.setItem(SLEEK_STORAGE_KEY, JSON.stringify(app));
+    } else {
+      localStorage.removeItem(SLEEK_STORAGE_KEY);
+    }
+  } catch {
+    // quota exceeded or private browsing
+  }
+}
+
+function loadSleekApp(): SleekPreviewApp | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(SLEEK_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as SleekPreviewApp;
+    if (!parsed || !parsed.id || !Array.isArray(parsed.screens)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
 export function EditorProvider({
   children,
   initialProject,
@@ -76,16 +104,18 @@ export function EditorProvider({
   const [hydrated, setHydrated] = useState(isPreview);
   const [sleekApp, setSleekAppState] = useState<SleekPreviewApp | null>(null);
 
-  // Load persisted project once on mount — skip when a project is injected directly
+  // Load persisted project and sleek app once on mount
   useEffect(() => {
     if (isPreview) return;
-    const saved = loadProject();
-    if (saved) setProjectState(saved);
+    const savedProject = loadProject();
+    if (savedProject) setProjectState(savedProject);
+    const savedSleek = loadSleekApp();
+    if (savedSleek) setSleekAppState(savedSleek);
     setHydrated(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Persist mutations — skip for preview (read-only context)
+  // Persist project mutations
   useEffect(() => {
     if (hydrated && !isPreview) saveProject(project);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -154,13 +184,16 @@ export function EditorProvider({
 
   const setSleekApp = useCallback((app: SleekPreviewApp | null) => {
     setSleekAppState(app);
-  }, []);
+    if (!isPreview) saveSleekApp(app);
+  }, [isPreview]);
 
   const setSleekActiveIndex = useCallback((index: number) => {
-    setSleekAppState((prev) =>
-      prev ? { ...prev, activeIndex: index } : prev
-    );
-  }, []);
+    setSleekAppState((prev) => {
+      const next = prev ? { ...prev, activeIndex: index } : prev;
+      if (!isPreview && next) saveSleekApp(next);
+      return next;
+    });
+  }, [isPreview]);
 
   return (
     <EditorContext.Provider
