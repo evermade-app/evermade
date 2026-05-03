@@ -16,7 +16,7 @@ export default function BuilderPromptBar({ value, onChange, onSend }: Props) {
   const [plusOpen, setPlusOpen] = useState(false);
   const [chipVisible, setChipVisible] = useState(false);
 
-  const { editMode, toggleEditMode, selection, setSelection, project } = useEditor();
+  const { selection, setSelection, project } = useEditor();
   const selectedComponent = selection
     ? getComponent(project, selection.screenId, selection.componentId)
     : null;
@@ -153,40 +153,6 @@ export default function BuilderPromptBar({ value, onChange, onSend }: Props) {
             }}
           >
             {plusOpen ? "×" : "+"}
-          </button>
-
-          {/* Visual edits pill */}
-          <button
-            type="button"
-            onClick={toggleEditMode}
-            title={editMode ? "Exit Visual Edit" : "Enable Visual Edit"}
-            style={{
-              display: "flex", alignItems: "center", gap: 5,
-              padding: "5px 11px",
-              borderRadius: 20,
-              border: `1px solid ${editMode ? "rgba(124,92,252,0.4)" : "rgba(255,255,255,0.1)"}`,
-              background: editMode ? "rgba(124,92,252,0.12)" : "rgba(255,255,255,0.04)",
-              color: editMode ? "rgba(160,140,255,0.92)" : "rgba(255,255,255,0.45)",
-              fontSize: 12,
-              fontWeight: 500,
-              cursor: "pointer",
-              flexShrink: 0,
-              transition: "all 0.18s ease",
-              fontFamily: "inherit",
-              letterSpacing: -0.1,
-            }}
-          >
-            {/* Cursor/edit icon */}
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>
-            </svg>
-            Visual edits
-            {editMode && (
-              <div style={{
-                width: 5, height: 5, borderRadius: "50%",
-                background: "#7c5cfc", boxShadow: "0 0 5px rgba(124,92,252,0.9)", flexShrink: 0,
-              }} />
-            )}
           </button>
 
           {/* Spacer */}
