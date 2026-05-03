@@ -250,12 +250,6 @@ function SleekCanvas({ onSend }: { onSend?: (text: string) => void }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // SCREEN CARD — with visual editor overlay + "Edit with AI" floating bar
 // ─────────────────────────────────────────────────────────────────────────────
-interface VEBar {
-  clientX: number;
-  clientY: number;
-  inputText: string;
-}
-
 function ScreenCard({
   screen,
   index,
@@ -275,7 +269,10 @@ function ScreenCard({
 }) {
   const { setVeSelection } = useEditor();
   const [hovered, setHovered] = useState(false);
-  const [veBar, setVeBar] = useState<VEBar | null>(null);
+  // Position is frozen at click time via ref — text state is separate so typing never moves the bar
+  const vePosRef = useRef<{ x: number; y: number } | null>(null);
+  const [veBarOpen, setVeBarOpen] = useState(false);
+  const [veBarText, setVeBarText] = useState("");
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const lastHoverRef = useRef<Element | null>(null);
 
@@ -305,11 +302,13 @@ function ScreenCard({
       return () => {
         iframeRef.current?.removeEventListener("load", injectVeStyle);
         removeVeStyle();
-        setVeBar(null);
+        setVeBarOpen(false);
+        vePosRef.current = null;
       };
     } else {
       removeVeStyle();
-      setVeBar(null);
+      setVeBarOpen(false);
+      vePosRef.current = null;
     }
   }, [visualEdit, injectVeStyle, removeVeStyle]);
 
@@ -363,17 +362,28 @@ function ScreenCard({
       elementText,
     });
 
-    // Show floating "Edit with AI" bar near click
-    setVeBar({ clientX: e.clientX, clientY: e.clientY, inputText: "" });
+    // Freeze position once — never recalculated on re-renders
+    vePosRef.current = { x: e.clientX, y: e.clientY };
+    setVeBarText("");
+    setVeBarOpen(true);
 
-    void computed; // used only for future ext
+    void computed;
   }, [getElAt, index, screen.name, setVeSelection]);
 
   const submitVeBar = useCallback((text: string) => {
     if (!text.trim()) return;
     onSend?.(text);
-    setVeBar(null);
+    setVeBarOpen(false);
+    vePosRef.current = null;
   }, [onSend]);
+
+  const closeVeBar = useCallback(() => {
+    setVeBarOpen(false);
+    vePosRef.current = null;
+    const doc = iframeRef.current?.contentDocument;
+    doc?.querySelectorAll(".em-s").forEach((el) => el.classList.remove("em-s"));
+    setVeSelection(null);
+  }, [setVeSelection]);
 
   return (
     <div
@@ -444,18 +454,15 @@ function ScreenCard({
         )}
       </div>
 
-      {/* "Edit with AI" floating bar — rendered via portal so it escapes the scaled container */}
-      {veBar && typeof document !== "undefined" && createPortal(
+      {/* "Edit with AI" bar — portal to body so CSS transform ancestors don't affect fixed positioning */}
+      {veBarOpen && vePosRef.current && typeof document !== "undefined" && createPortal(
         <EditWithAIBar
-          bar={veBar}
+          x={vePosRef.current.x}
+          y={vePosRef.current.y}
+          text={veBarText}
           onSubmit={submitVeBar}
-          onChange={(text) => setVeBar((b) => b ? { ...b, inputText: text } : null)}
-          onClose={() => {
-            setVeBar(null);
-            const doc = iframeRef.current?.contentDocument;
-            doc?.querySelectorAll(".em-s").forEach((el) => el.classList.remove("em-s"));
-            setVeSelection(null);
-          }}
+          onChange={setVeBarText}
+          onClose={closeVeBar}
         />,
         document.body
       )}
@@ -467,125 +474,127 @@ function ScreenCard({
 // "EDIT WITH AI" FLOATING BAR
 // ─────────────────────────────────────────────────────────────────────────────
 function EditWithAIBar({
-  bar,
+  x: rawX,
+  y: rawY,
+  text,
   onSubmit,
   onChange,
   onClose,
 }: {
-  bar: VEBar;
+  x: number;
+  y: number;
+  text: string;
   onSubmit: (text: string) => void;
   onChange: (text: string) => void;
   onClose: () => void;
 }) {
-  const barW = 420;
-  const x = Math.min(bar.clientX - barW / 2, window.innerWidth - barW - 12);
-  const y = Math.max(10, bar.clientY - 72);
+  // Freeze position on first mount — never recalculate, prevents jitter on input
+  const posRef = useRef({ x: rawX, y: rawY });
+  const BAR_W = 310;
+  const BAR_H = 40;
+  const MARGIN = 10;
+  const left = Math.min(
+    Math.max(MARGIN, posRef.current.x - BAR_W / 2),
+    window.innerWidth - BAR_W - MARGIN
+  );
+  const top = Math.max(
+    MARGIN,
+    posRef.current.y - BAR_H - 12 < MARGIN
+      ? posRef.current.y + 16   // flip below if too close to top
+      : posRef.current.y - BAR_H - 12
+  );
 
   return (
     <div
       style={{
         position: "fixed",
-        top: y,
-        left: Math.max(12, x),
+        top,
+        left,
         zIndex: 99999,
-        width: barW,
+        width: BAR_W,
+        height: BAR_H,
         display: "flex",
         alignItems: "center",
-        background: "rgba(10,10,18,0.96)",
-        border: "1px solid rgba(124,92,252,0.3)",
-        borderRadius: 100,
-        boxShadow: "0 12px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04), 0 0 20px rgba(124,92,252,0.08)",
-        backdropFilter: "blur(32px)",
-        WebkitBackdropFilter: "blur(32px)",
+        background: "rgba(9,9,16,0.97)",
+        border: "1px solid rgba(124,92,252,0.28)",
+        borderRadius: BAR_H / 2,
+        boxShadow: "0 8px 32px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.04)",
+        backdropFilter: "blur(40px)",
+        WebkitBackdropFilter: "blur(40px)",
         overflow: "hidden",
-        animation: "veBarIn 0.18s cubic-bezier(0.22,1,0.36,1) both",
+        animation: "veBarIn 0.16s cubic-bezier(0.34,1.56,0.64,1) both",
+        pointerEvents: "auto",
       }}
       onClick={(e) => e.stopPropagation()}
     >
-      <style>{`@keyframes veBarIn{from{opacity:0;transform:translateY(6px) scale(0.97)}to{opacity:1;transform:translateY(0) scale(1)}}`}</style>
+      <style>{`@keyframes veBarIn{from{opacity:0;transform:scale(0.88)}to{opacity:1;transform:scale(1)}}`}</style>
 
-      {/* Sparkle icon */}
-      <div style={{ padding: "0 10px 0 14px", flexShrink: 0, color: "rgba(160,140,255,0.7)", display: "flex", alignItems: "center" }}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 2l2.09 6.26L20 10l-5.91 1.74L12 18l-2.09-6.26L4 10l5.91-1.74z" opacity=".9"/>
-          <path d="M19 2l1 3 3 1-3 1-1 3-1-3-3-1 3-1z" opacity=".6"/>
-          <path d="M5 19l.75 2.25L8 22l-2.25.75L5 25l-.75-2.25L2 22l2.25-.75z" opacity=".5"/>
+      {/* Sparkle */}
+      <div style={{ padding: "0 8px 0 12px", flexShrink: 0, color: "rgba(150,120,255,0.75)", display: "flex", alignItems: "center" }}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2l2.09 6.26L20 10l-5.91 1.74L12 18l-2.09-6.26L4 10l5.91-1.74z"/>
         </svg>
       </div>
 
-      {/* Text input */}
+      {/* Input */}
       <input
         autoFocus
-        value={bar.inputText}
+        value={text}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === "Enter") { e.preventDefault(); onSubmit(bar.inputText); }
+          if (e.key === "Enter") { e.preventDefault(); onSubmit(text); }
           if (e.key === "Escape") { e.preventDefault(); onClose(); }
         }}
         placeholder="Edit with AI…"
         style={{
-          flex: 1,
-          background: "transparent",
-          border: "none",
-          outline: "none",
-          color: "rgba(255,255,255,0.88)",
-          fontSize: 13,
+          flex: 1, minWidth: 0,
+          background: "transparent", border: "none", outline: "none",
+          color: "rgba(255,255,255,0.88)", fontSize: 12.5,
           fontFamily: "-apple-system,BlinkMacSystemFont,'Geist','SF Pro Text',sans-serif",
-          letterSpacing: -0.1,
-          padding: "11px 4px",
-          caretColor: "#7c5cfc",
+          letterSpacing: -0.1, padding: 0, caretColor: "#7c5cfc",
         }}
       />
 
-      {/* Send button */}
+      {/* Divider */}
+      <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.07)", flexShrink: 0 }} />
+
+      {/* Quick icons */}
+      <VEIconBtn title="Edit style" onClick={() => onChange("Change the style and colors")}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+        </svg>
+      </VEIconBtn>
+      <VEIconBtn title="Edit text" onClick={() => onChange("Edit the text content")}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/>
+        </svg>
+      </VEIconBtn>
+      <VEIconBtn title="Delete element" onClick={() => onSubmit("Remove this element completely")}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/>
+        </svg>
+      </VEIconBtn>
+
+      {/* Send */}
       <button
-        onClick={() => onSubmit(bar.inputText)}
-        disabled={!bar.inputText.trim()}
+        onClick={() => onSubmit(text)}
+        disabled={!text.trim()}
+        title="Send (Enter)"
         style={{
-          width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
-          border: "none", marginRight: 6,
-          background: bar.inputText.trim()
-            ? "linear-gradient(135deg,#7c5cfc,#4878ff)"
-            : "rgba(255,255,255,0.07)",
-          color: bar.inputText.trim() ? "white" : "rgba(255,255,255,0.22)",
+          width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+          border: "none", margin: "0 6px",
+          background: text.trim() ? "linear-gradient(135deg,#7c5cfc,#4878ff)" : "rgba(255,255,255,0.06)",
+          color: text.trim() ? "white" : "rgba(255,255,255,0.2)",
           display: "flex", alignItems: "center", justifyContent: "center",
-          cursor: bar.inputText.trim() ? "pointer" : "default",
-          transition: "all 0.15s",
-          boxShadow: bar.inputText.trim() ? "0 3px 12px rgba(124,92,252,0.45)" : "none",
+          cursor: text.trim() ? "pointer" : "default",
+          transition: "all 0.14s",
+          boxShadow: text.trim() ? "0 2px 10px rgba(124,92,252,0.5)" : "none",
         }}
       >
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 19V5M5 12l7-7 7 7"/>
         </svg>
       </button>
-
-      {/* Divider */}
-      <div style={{ width: 1, height: 24, background: "rgba(255,255,255,0.08)", flexShrink: 0 }} />
-
-      {/* Quick-action icons */}
-      <div style={{ display: "flex", alignItems: "center", gap: 0, padding: "0 4px" }}>
-        <VEIconBtn title="Edit style" onClick={() => onChange("Change the style and colors")}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="13.5" cy="6.5" r="2.5"/><circle cx="6.5" cy="13.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>
-            <path d="M7.5 7.5C9 6 10 5 12 5M18 13c0 2-1 3-2.5 4.5"/>
-          </svg>
-        </VEIconBtn>
-        <VEIconBtn title="Edit text" onClick={() => onChange("Edit the text content")}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/>
-          </svg>
-        </VEIconBtn>
-        <VEIconBtn title="Change layout" onClick={() => onChange("Change the layout and spacing")}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
-          </svg>
-        </VEIconBtn>
-        <VEIconBtn title="Delete element" onClick={() => onSubmit("Remove this element completely")}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
-          </svg>
-        </VEIconBtn>
-      </div>
     </div>
   );
 }
@@ -599,11 +608,11 @@ function VEIconBtn({ title, onClick, children }: { title: string; onClick: () =>
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        width: 32, height: 32, border: "none", borderRadius: 8,
-        background: hov ? "rgba(255,255,255,0.07)" : "none",
-        color: hov ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.35)",
+        width: 30, height: 30, border: "none", borderRadius: 0,
+        background: hov ? "rgba(255,255,255,0.06)" : "none",
+        color: hov ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.3)",
         display: "flex", alignItems: "center", justifyContent: "center",
-        cursor: "pointer", flexShrink: 0, transition: "all 0.12s",
+        cursor: "pointer", flexShrink: 0, transition: "all 0.1s",
       }}
     >{children}</button>
   );
