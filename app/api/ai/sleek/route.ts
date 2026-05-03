@@ -73,6 +73,13 @@ export async function POST(req: NextRequest) {
     if (isFounder || userPlan === "owner") {
       const sleekProject = await generateWithSleek(prompt);
       const appName = (body?.appName?.trim() || prompt).slice(0, 60);
+      // deductCredits logs amount=0 for owner/founder — no balance change, just history
+      await deductCredits(
+        userId,
+        creditsForScreens(sleekProject.screens.length),
+        "generate",
+        `Generated: ${appName} (${sleekProject.screens.length} screens)`,
+      );
       return NextResponse.json({
         app: {
           id: sleekProject.id,
