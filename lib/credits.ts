@@ -92,44 +92,67 @@ export async function deductCredits(
   action: string,
   description: string,
 ): Promise<{ success: boolean; remaining: number }> {
+  console.log("[credits:deduct] START", { userId, amount, action });
+
   const supabase = createServiceSupabaseClient();
 
-  const { data: profile } = await supabase
+  const { data: profile, error: profileErr } = await supabase
     .from("profiles")
     .select("plan, credits_used, credits_addons, email")
     .eq("id", userId)
     .single();
 
+  if (profileErr) console.error("[credits:deduct] profile fetch error:", profileErr.message);
+  console.log("[credits:deduct] profile:", { plan: profile?.plan, credits_used: profile?.credits_used, email: profile?.email });
+
   const email = (profile?.email ?? "").toLowerCase();
-  if (email === FOUNDER_EMAIL) return { success: true, remaining: 999_999_999 };
+  if (email === FOUNDER_EMAIL) {
+    console.log("[credits:deduct] founder account — skipping deduction");
+    return { success: true, remaining: 999_999_999 };
+  }
 
   const plan = normalizePlan(profile?.plan);
-  if (plan === "owner") return { success: true, remaining: 999_999_999 };
+  if (plan === "owner") {
+    console.log("[credits:deduct] owner plan — skipping deduction");
+    return { success: true, remaining: 999_999_999 };
+  }
 
   const currentUsed = profile?.credits_used ?? 0;
   const creditsAddons = profile?.credits_addons ?? 0;
   const monthlyCredits = PLANS[plan].monthlyCredits;
   const available = Math.max(0, monthlyCredits + creditsAddons - currentUsed);
 
-  if (available < amount) return { success: false, remaining: available };
+  if (available < amount) {
+    console.log("[credits:deduct] insufficient credits", { available, needed: amount });
+    return { success: false, remaining: available };
+  }
 
   const newUsed = currentUsed + amount;
   const newRemaining = Math.max(0, monthlyCredits + creditsAddons - newUsed);
 
-  await supabase
+  const { error: updateErr } = await supabase
     .from("profiles")
     .update({ credits_used: newUsed })
     .eq("id", userId);
+  if (updateErr) console.error("[credits:deduct] profile update error:", updateErr.message);
+  else console.log("[credits:deduct] profile updated, credits_used →", newUsed);
 
-  // Log transaction — check .error, not try/catch (Supabase never throws)
-  const { error: txError } = await supabase.from("credit_transactions").insert({
-    user_id: userId,
-    amount: -amount,
-    balance_after: newRemaining,
-    action,
-    description,
-  });
-  if (txError) console.error("[credits] transaction log failed:", txError.message);
+  // Insert transaction row — Supabase never throws, always check .error
+  const { error: txError } = await supabase
+    .from("credit_transactions")
+    .insert({
+      user_id: userId,
+      amount: -amount,
+      balance_after: newRemaining,
+      action,
+      description,
+    });
+
+  if (txError) {
+    console.error("[credits:deduct] credit_transactions insert FAILED:", txError.code, txError.message, txError.details);
+  } else {
+    console.log("[credits:deduct] credit_transactions row inserted ✓", { action, amount: -amount, balance_after: newRemaining });
+  }
 
   return { success: true, remaining: newRemaining };
 }
