@@ -238,7 +238,7 @@ export default function ShareEvermadeModal({ onClose }: { onClose: () => void })
         {/* ── Banner image ── */}
         <div style={{ position: "relative", height: 200, overflow: "hidden" }}>
           <img
-            src="/share-banner.jpg"
+            src="/share-banner.PNG"
             alt="Share Evermade"
             style={{
               width: "100%", height: "100%",
