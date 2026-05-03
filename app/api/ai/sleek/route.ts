@@ -2,77 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/nextauth";
 import { generateWithSleek } from "@/lib/evermade/sleek/client";
-import { createServiceSupabaseClient } from "@/lib/supabase/server";
-import {
-  normalizePlan,
-  canGenerate,
-  creditsForScreens,
-  PLANS,
-  type PlanId,
-} from "@/lib/evermade/plans";
-
-// ── DB helpers ────────────────────────────────────────────────────────────────
-
-interface UsageRow {
-  plan: string | null;
-  credits_used: number;
-  credits_reset_date: string | null;
-  credits_addons: number;
-}
-
-async function getUsage(userId: string): Promise<{
-  userPlan: PlanId;
-  creditsUsed: number;
-  creditsAddons: number;
-  shouldReset: boolean;
-}> {
-  try {
-    const supabase = createServiceSupabaseClient();
-    const { data } = await supabase
-      .from("profiles")
-      .select("plan, credits_used, credits_reset_date, credits_addons")
-      .eq("id", userId)
-      .single<UsageRow>();
-
-    const userPlan = normalizePlan(data?.plan);
-    const creditsUsed = data?.credits_used ?? 0;
-    const creditsAddons = data?.credits_addons ?? 0;
-
-    let shouldReset = false;
-    if (PLANS[userPlan].resetsMonthly && data?.credits_reset_date) {
-      const resetDate = new Date(data.credits_reset_date);
-      const now = new Date();
-      shouldReset =
-        now.getMonth() !== resetDate.getMonth() ||
-        now.getFullYear() !== resetDate.getFullYear();
-    }
-
-    return { userPlan, creditsUsed, creditsAddons, shouldReset };
-  } catch {
-    return { userPlan: "free", creditsUsed: 0, creditsAddons: 0, shouldReset: false };
-  }
-}
-
-async function deductCredits(
-  userId: string,
-  cost: number,
-  currentUsed: number,
-  shouldReset: boolean,
-) {
-  try {
-    const supabase = createServiceSupabaseClient();
-    const base = shouldReset ? 0 : currentUsed;
-    await supabase
-      .from("profiles")
-      .update({
-        credits_used: base + cost,
-        ...(shouldReset ? { credits_reset_date: new Date().toISOString() } : {}),
-      })
-      .eq("id", userId);
-  } catch {
-    // Non-fatal — generation already happened
-  }
-}
+import { getUserCredits, deductCredits } from "@/lib/credits";
+import { canGenerate, creditsForScreens, PLANS } from "@/lib/evermade/plans";
 
 // ── POST /api/ai/sleek ────────────────────────────────────────────────────────
 export async function POST(req: NextRequest) {
@@ -92,13 +23,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "prompt is required" }, { status: 400 });
     }
 
-    const userId = session.user.uid ?? null;
+    const userId = session.user.uid;
     if (!userId) {
       return NextResponse.json({ error: "User ID missing from session" }, { status: 401 });
     }
 
-    const { userPlan, creditsUsed, creditsAddons, shouldReset } = await getUsage(userId);
-    const planConfig = PLANS[userPlan];
+    // getUserCredits handles monthly reset automatically and applies founder rule
+    const profile = await getUserCredits(userId, session.user.email ?? undefined);
+    const { plan: userPlan, creditsRemaining, creditsUsed, creditsAddons, isFounder } = profile;
+    const planConfig = PLANS[userPlan === "owner" ? "evermax" : userPlan];
 
     // ── Free plan: 1 lifetime generation of 3 screens ─────────────────────────
     if (userPlan === "free") {
@@ -115,18 +48,17 @@ export async function POST(req: NextRequest) {
       }
 
       const sleekProject = await generateWithSleek(prompt);
-      const screens = sleekProject.screens.slice(0, planConfig.maxScreensPerApp);
+      const screens = sleekProject.screens.slice(0, PLANS.free.maxScreensPerApp);
 
-      // Inject watermark into each screen's HTML
       const watermark = `<div style="position:fixed;bottom:12px;right:12px;z-index:99999;background:rgba(0,0,0,0.75);color:#fff;padding:5px 10px;border-radius:20px;font-size:10px;font-family:sans-serif;letter-spacing:0.3px;backdrop-filter:blur(8px)">Made with Evermade</div>`;
       const watermarkedScreens = screens.map((s) => ({
         ...s,
         html: s.html.replace("</body>", `${watermark}</body>`),
       }));
 
-      await deductCredits(userId, planConfig.monthlyCredits, creditsUsed, shouldReset);
-
       const appName = (body?.appName?.trim() || prompt).slice(0, 60);
+      await deductCredits(userId, PLANS.free.monthlyCredits, "generate", `Generated: ${appName} (${screens.length} screens)`);
+
       return NextResponse.json({
         app: {
           id: sleekProject.id,
@@ -137,19 +69,29 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // ── Paid plans: credit check ───────────────────────────────────────────────
-    const screenCount = planConfig.maxScreensPerApp; // always 9 for paid plans
-    const effectiveUsed = shouldReset ? 0 : creditsUsed;
+    // ── Owner / founder: skip credit check, always allow ──────────────────────
+    if (isFounder || userPlan === "owner") {
+      const sleekProject = await generateWithSleek(prompt);
+      const appName = (body?.appName?.trim() || prompt).slice(0, 60);
+      return NextResponse.json({
+        app: {
+          id: sleekProject.id,
+          appName,
+          screens: sleekProject.screens,
+          activeIndex: 0,
+        },
+      });
+    }
 
-    if (!canGenerate(userPlan, effectiveUsed, screenCount, creditsAddons)) {
-      const creditsLeft = Math.max(
-        0,
-        planConfig.monthlyCredits + creditsAddons - effectiveUsed,
-      );
+    // ── Paid plans: credit check ───────────────────────────────────────────────
+    const screenCount = planConfig.maxScreensPerApp;
+    const neededCredits = creditsForScreens(screenCount);
+
+    if (!canGenerate(userPlan, creditsUsed, screenCount, creditsAddons)) {
       return NextResponse.json(
         {
           error: "Insufficient credits",
-          message: `You have **${creditsLeft} credits** left this month (need ${creditsForScreens(screenCount)} for ${screenCount} screens). Upgrade or purchase add-on credits.`,
+          message: `You have **${creditsRemaining} credits** left this month (need ${neededCredits} for ${screenCount} screens). Upgrade or purchase add-on credits.`,
           upgradeUrl: "/pricing",
         },
         { status: 403 },
@@ -159,12 +101,15 @@ export async function POST(req: NextRequest) {
     // ── Generate ──────────────────────────────────────────────────────────────
     const sleekProject = await generateWithSleek(prompt);
     const cost = creditsForScreens(sleekProject.screens.length);
-
-    if (userId) {
-      await deductCredits(userId, cost, creditsUsed, shouldReset);
-    }
-
     const appName = (body?.appName?.trim() || prompt).slice(0, 60);
+
+    await deductCredits(
+      userId,
+      cost,
+      "generate",
+      `Generated: ${appName} (${sleekProject.screens.length} screens)`,
+    );
+
     return NextResponse.json({
       app: {
         id: sleekProject.id,

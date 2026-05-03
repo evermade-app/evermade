@@ -121,16 +121,15 @@ export async function deductCredits(
     .update({ credits_used: newUsed })
     .eq("id", userId);
 
-  // Log transaction (non-fatal if table doesn't exist)
-  try {
-    await supabase.from("credit_transactions").insert({
-      user_id: userId,
-      amount: -amount,
-      balance_after: newRemaining,
-      action,
-      description,
-    });
-  } catch { /* table may not exist yet */ }
+  // Log transaction — check .error, not try/catch (Supabase never throws)
+  const { error: txError } = await supabase.from("credit_transactions").insert({
+    user_id: userId,
+    amount: -amount,
+    balance_after: newRemaining,
+    action,
+    description,
+  });
+  if (txError) console.error("[credits] transaction log failed:", txError.message);
 
   return { success: true, remaining: newRemaining };
 }
@@ -153,18 +152,17 @@ export async function addCredits(
   const newAddons = (profile?.credits_addons ?? 0) + amount;
   await supabase.from("profiles").update({ credits_addons: newAddons }).eq("id", userId);
 
-  try {
-    const plan = normalizePlan(profile?.plan);
-    const used = profile?.credits_used ?? 0;
-    const remaining = Math.max(0, PLANS[plan].monthlyCredits + newAddons - used);
-    await supabase.from("credit_transactions").insert({
-      user_id: userId,
-      amount,
-      balance_after: remaining,
-      action: "purchase",
-      description: source,
-    });
-  } catch { /* non-fatal */ }
+  const plan = normalizePlan(profile?.plan);
+  const used = profile?.credits_used ?? 0;
+  const remaining = Math.max(0, PLANS[plan].monthlyCredits + newAddons - used);
+  const { error: txError } = await supabase.from("credit_transactions").insert({
+    user_id: userId,
+    amount,
+    balance_after: remaining,
+    action: "purchase",
+    description: source,
+  });
+  if (txError) console.error("[credits] purchase log failed:", txError.message);
 }
 
 // ── Core: checkCreditsBeforeAction ────────────────────────────────────────────
@@ -196,15 +194,12 @@ export async function resetMonthlyCredits(userId: string): Promise<void> {
 
 export async function getCreditHistory(userId: string): Promise<CreditTransaction[]> {
   const supabase = createServiceSupabaseClient();
-  try {
-    const { data } = await supabase
-      .from("credit_transactions")
-      .select("*")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(25);
-    return (data ?? []) as CreditTransaction[];
-  } catch {
-    return [];
-  }
+  const { data, error } = await supabase
+    .from("credit_transactions")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(25);
+  if (error) console.error("[credits] history fetch failed:", error.message);
+  return (data ?? []) as CreditTransaction[];
 }
