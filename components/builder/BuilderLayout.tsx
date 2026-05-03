@@ -241,7 +241,42 @@ function BuilderLayoutInner() {
           onRestore={onRestore}
         />
 
-        {/* Preview — hidden when sidebar is fully expanded */}
+        {/* Floating tab to reopen sidebar when hidden */}
+        {sidebarMode === "hidden" && (
+          <button
+            onClick={() => setSidebarMode("normal")}
+            title="Show chat"
+            style={{
+              position: "absolute",
+              left: 0,
+              top: "50%",
+              transform: "translateY(-50%)",
+              zIndex: 20,
+              width: 20,
+              height: 56,
+              borderRadius: "0 8px 8px 0",
+              border: "1px solid rgba(79,142,255,0.18)",
+              borderLeft: "none",
+              background: "rgba(8,10,32,0.82)",
+              backdropFilter: "blur(20px)",
+              WebkitBackdropFilter: "blur(20px)",
+              color: "rgba(255,255,255,0.45)",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "4px 0 16px rgba(0,0,0,0.4)",
+              animation: "tabSlideIn 0.22s cubic-bezier(0.22,1,0.36,1) both",
+            }}
+          >
+            <style>{`@keyframes tabSlideIn{from{opacity:0;transform:translateY(-50%) translateX(-8px)}to{opacity:1;transform:translateY(-50%) translateX(0)}}`}</style>
+            <svg width="8" height="14" viewBox="0 0 8 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M1 1l6 6-6 6" />
+            </svg>
+          </button>
+        )}
+
+        {/* Preview — fades out when sidebar is fully expanded */}
         <div style={{
           flex: 1, minWidth: 0, overflow: "hidden", display: "flex",
           opacity: sidebarMode === "expanded" ? 0 : 1,
