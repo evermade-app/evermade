@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/nextauth";
 import { generateWithSleek } from "@/lib/evermade/sleek/client";
 import { convertScreensToRN } from "@/lib/evermade/sleek/rn-converter";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
-import { canGenerateApp, type PlanId } from "@/lib/evermade/plans";
+import { canGenerate, normalizePlan, type PlanId } from "@/lib/evermade/plans";
 
 export interface GeneratedApp {
   id: string;
@@ -53,7 +53,7 @@ async function getUserUsage(userId: string): Promise<UsageContext> {
       .eq("id", userId)
       .single();
 
-    const userPlan = (profile?.plan ?? "starter") as PlanId;
+    const userPlan = normalizePlan(profile?.plan);
     const screensUsed: number = profile?.screens_used_this_month ?? 0;
 
     const resetDate = new Date(profile?.screens_reset_date ?? Date.now());
@@ -64,7 +64,7 @@ async function getUserUsage(userId: string): Promise<UsageContext> {
 
     return { userPlan, screensUsed, shouldReset };
   } catch {
-    return { userPlan: "starter", screensUsed: 0, shouldReset: false };
+    return { userPlan: "free" as PlanId, screensUsed: 0, shouldReset: false };
   }
 }
 
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
     // ── Plan enforcement ──────────────────────────────────────────────────────
     const userId = session.user.uid ?? null;
 
-    let userPlan: PlanId = "starter";
+    let userPlan: PlanId = "free";
     let screensUsed = 0;
     let shouldReset = false;
 
@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
 
     const effectiveUsed = shouldReset ? 0 : screensUsed;
 
-    if (!canGenerateApp(userPlan, effectiveUsed)) {
+    if (!canGenerate(userPlan, effectiveUsed, 9)) {
       return NextResponse.json(
         {
           error: "Screen limit reached",

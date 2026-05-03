@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/nextauth";
 import { assembleExpoZip } from "@/lib/evermade/sleek/expo-assembler";
 import { getCachedApp } from "@/app/api/generate/route";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
-import { canExportApp, type PlanId } from "@/lib/evermade/plans";
+import { canExportApp, normalizePlan, type PlanId } from "@/lib/evermade/plans";
 
 async function getUserPlan(userId: string): Promise<PlanId> {
   try {
@@ -14,9 +14,9 @@ async function getUserPlan(userId: string): Promise<PlanId> {
       .select("plan")
       .eq("id", userId)
       .single();
-    return (profile?.plan ?? "starter") as PlanId;
+    return normalizePlan(profile?.plan);
   } catch {
-    return "starter";
+    return "free";
   }
 }
 
@@ -32,13 +32,13 @@ export async function GET(
     }
 
     const userId = session.user.uid ?? "";
-    const userPlan = userId ? await getUserPlan(userId) : "starter";
+    const userPlan = userId ? await getUserPlan(userId) : "free";
 
     if (!canExportApp(userPlan)) {
       return NextResponse.json(
         {
-          error: "Export not available on free plan",
-          message: "Upgrade to Starter or higher to export your app as an Expo ZIP.",
+          error: "Export not available on Free plan",
+          message: "Upgrade to **EverPro ($25/mo)** to export your app as an Expo ZIP.",
           upgradeUrl: "/pricing",
         },
         { status: 403 }
@@ -97,13 +97,13 @@ export async function POST(
     }
 
     const userId = session.user.uid ?? "";
-    const userPlan = userId ? await getUserPlan(userId) : "starter";
+    const userPlan = userId ? await getUserPlan(userId) : "free";
 
     if (!canExportApp(userPlan)) {
       return NextResponse.json(
         {
-          error: "Export not available on free plan",
-          message: "Upgrade to Starter or higher to export your app as an Expo ZIP.",
+          error: "Export not available on Free plan",
+          message: "Upgrade to **EverPro ($25/mo)** to export your app as an Expo ZIP.",
           upgradeUrl: "/pricing",
         },
         { status: 403 }

@@ -1,51 +1,110 @@
+// ── Plan definitions ──────────────────────────────────────────────────────────
 export const PLANS = {
   free: {
     name: "Free",
     price: 0,
-    screensPerMonth: 3,
-    appsPerMonth: 0,
+    monthlyCredits: 5,       // lifetime total, never resets
+    resetsMonthly: false,
+    maxScreensPerApp: 3,     // preview only — 3 screens shown, watermarked
+    watermark: true,
     canExport: false,
-    canShare: true,
-    description: "Try Evermade — 1 app preview",
+    canPublish: false,
+    canEditChat: false,
+    canBackend: false,
+    description: "Try the magic",
   },
-  starter: {
-    name: "Starter",
-    price: 19,
-    screensPerMonth: 9,
-    appsPerMonth: 1,
+  everpro: {
+    name: "EverPro",
+    price: 25,
+    monthlyCredits: 1500,    // ≈ 50 screens ≈ 5 full apps/month
+    resetsMonthly: true,
+    maxScreensPerApp: 9,
+    watermark: false,
     canExport: true,
-    canShare: true,
-    description: "1 complete app per month",
+    canPublish: false,
+    canEditChat: true,
+    canBackend: false,
+    description: "Build real apps. Fast.",
   },
-  pro: {
-    name: "Pro",
-    price: 49,
-    screensPerMonth: 27,
-    appsPerMonth: 3,
+  evermax: {
+    name: "EverMax",
+    price: 59,
+    monthlyCredits: 6000,    // ≈ 200 screens ≈ 20 full apps/month
+    resetsMonthly: true,
+    maxScreensPerApp: 9,
+    watermark: false,
     canExport: true,
-    canShare: true,
-    description: "3 complete apps per month",
+    canPublish: true,
+    canEditChat: true,
+    canBackend: true,
+    description: "From idea to App Store.",
   },
-  agency: {
-    name: "Agency",
-    price: 149,
-    screensPerMonth: 90,
-    appsPerMonth: 10,
+  owner: {
+    name: "Owner",
+    price: 0,
+    monthlyCredits: 999_999_999,
+    resetsMonthly: false,
+    maxScreensPerApp: 9,
+    watermark: false,
     canExport: true,
-    canShare: true,
-    description: "10 complete apps per month",
+    canPublish: true,
+    canEditChat: true,
+    canBackend: true,
+    description: "Unlimited — internal owner account",
   },
 } as const;
 
 export type PlanId = keyof typeof PLANS;
 
-export function canGenerateApp(
-  userPlan: PlanId,
-  screensUsedThisMonth: number
-): boolean {
-  return screensUsedThisMonth + 9 <= PLANS[userPlan].screensPerMonth;
+// ── Credit costs ──────────────────────────────────────────────────────────────
+export const CREDIT_COSTS = {
+  generateScreen: 30,  // per screen
+  editChat: 15,        // per chat edit (avg of 10–20 depending on complexity)
+  regenerate: 15,      // per screen regeneration
+} as const;
+
+// ── Normalize legacy plan names from DB ───────────────────────────────────────
+export function normalizePlan(raw: string | null | undefined): PlanId {
+  if (!raw) return "free";
+  if (raw in PLANS) return raw as PlanId;
+  // Map old plan names → new
+  const legacy: Record<string, PlanId> = {
+    starter: "everpro",
+    pro:     "everpro",
+    agency:  "evermax",
+  };
+  return legacy[raw] ?? "free";
 }
 
-export function canExportApp(userPlan: PlanId): boolean {
-  return PLANS[userPlan].canExport;
+// ── Credit helpers ────────────────────────────────────────────────────────────
+export function creditsForScreens(count: number): number {
+  return count * CREDIT_COSTS.generateScreen;
+}
+
+export function creditsRemaining(
+  plan: PlanId,
+  creditsUsed: number,
+  creditsAddons = 0,
+): number {
+  if (plan === "owner") return 999_999_999;
+  return Math.max(0, PLANS[plan].monthlyCredits + creditsAddons - creditsUsed);
+}
+
+export function canGenerate(
+  plan: PlanId,
+  creditsUsed: number,
+  screenCount: number,
+  creditsAddons = 0,
+): boolean {
+  if (plan === "owner") return true;
+  if (plan === "free") return creditsUsed < PLANS.free.monthlyCredits; // 1 free try
+  return creditsRemaining(plan, creditsUsed, creditsAddons) >= creditsForScreens(screenCount);
+}
+
+export function canExportApp(plan: PlanId): boolean {
+  return PLANS[plan].canExport;
+}
+
+export function canPublishApp(plan: PlanId): boolean {
+  return PLANS[plan].canPublish;
 }
