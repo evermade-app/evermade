@@ -35,6 +35,13 @@ export interface SleekPreviewApp {
   activeIndex: number;
 }
 
+export interface VESelection {
+  screenIndex: number;
+  screenName: string;
+  elementTag: string;
+  elementText: string;
+}
+
 type EditorContextValue = {
   hydrated: boolean;
   editMode: boolean;
@@ -57,6 +64,9 @@ type EditorContextValue = {
   sleekApp: SleekPreviewApp | null;
   setSleekApp: (app: SleekPreviewApp | null) => void;
   setSleekActiveIndex: (index: number) => void;
+  // Visual editor selection
+  veSelection: VESelection | null;
+  setVeSelection: (s: VESelection | null) => void;
 };
 
 const EditorContext = createContext<EditorContextValue | null>(null);
@@ -103,6 +113,7 @@ export function EditorProvider({
   const [project, setProjectState] = useState<Project>(initialProject ?? FITTRACK_PROJECT);
   const [hydrated, setHydrated] = useState(isPreview);
   const [sleekApp, setSleekAppState] = useState<SleekPreviewApp | null>(null);
+  const [veSelection, setVeSelectionState] = useState<VESelection | null>(null);
 
   // Load persisted project and sleek app once on mount
   useEffect(() => {
@@ -187,6 +198,10 @@ export function EditorProvider({
     if (!isPreview) saveSleekApp(app);
   }, [isPreview]);
 
+  const setVeSelection = useCallback((s: VESelection | null) => {
+    setVeSelectionState(s);
+  }, []);
+
   const setSleekActiveIndex = useCallback((index: number) => {
     setSleekAppState((prev) => {
       const next = prev ? { ...prev, activeIndex: index } : prev;
@@ -218,6 +233,8 @@ export function EditorProvider({
         sleekApp,
         setSleekApp,
         setSleekActiveIndex,
+        veSelection,
+        setVeSelection,
       }}
     >
       {children}

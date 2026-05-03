@@ -23,7 +23,7 @@ function now() {
 const CHAT_STORAGE_KEY = "evermade-chat-v1";
 
 function BuilderLayoutInner() {
-  const { hydrated, setSleekApp } = useEditor();
+  const { hydrated, setSleekApp, sleekApp, veSelection, setVeSelection } = useEditor();
   const [messages, setMessages] = useState<Message[]>([]);
   const [prompt, setPrompt] = useState("");
 
@@ -35,18 +35,15 @@ function BuilderLayoutInner() {
   useEffect(() => {
     const pending = localStorage.getItem("evermade-pending-prompt");
     if (pending) {
-      // New generation incoming — wipe any stale state
       setSleekApp(null);
       setMessages([]);
       localStorage.removeItem(CHAT_STORAGE_KEY);
     } else {
-      // Returning to existing project — restore chat history
       try {
         const raw = localStorage.getItem(CHAT_STORAGE_KEY);
         if (raw) {
           const saved = JSON.parse(raw) as Message[];
           if (Array.isArray(saved) && saved.length > 0) {
-            // Strip any stuck "thinking" bubbles from a previous session
             setMessages(saved.filter((m) => !m.isThinking));
           }
         }
@@ -74,6 +71,64 @@ function BuilderLayoutInner() {
     );
   };
 
+  // ── Targeted element edit (visual editor) ────────────────────────────────────
+  const handleVEEdit = async (
+    userText: string,
+    thinkingId: string,
+  ) => {
+    if (!veSelection || !sleekApp) return false;
+
+    const screen = sleekApp.screens[veSelection.screenIndex];
+    if (!screen) return false;
+
+    try {
+      const res = await fetch("/api/ai/edit-element", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          screenHtml: screen.html,
+          screenName: veSelection.screenName,
+          elementTag: veSelection.elementTag,
+          elementText: veSelection.elementText,
+          editRequest: userText,
+        }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({})) as { error?: string; message?: string };
+        if (res.status === 401) {
+          resolveThinking(thinkingId, "You need to be signed in. Please [sign in](/login).");
+        } else {
+          resolveThinking(thinkingId, `Edit failed: ${err.error ?? res.statusText}`);
+        }
+        return true;
+      }
+
+      const data = await res.json() as { html: string };
+
+      setSleekApp({
+        ...sleekApp,
+        screens: sleekApp.screens.map((s, i) =>
+          i === veSelection.screenIndex ? { ...s, html: data.html } : s
+        ),
+      });
+
+      setVeSelection(null);
+      resolveThinking(
+        thinkingId,
+        `Done — edited **${veSelection.elementTag}** in *${veSelection.screenName}* ✨`
+      );
+      return true;
+    } catch (err) {
+      resolveThinking(
+        thinkingId,
+        `Connection error — ${err instanceof Error ? err.message : "Could not reach the server."}`
+      );
+      return true;
+    }
+  };
+
+  // ── Main send handler ────────────────────────────────────────────────────────
   const handleSend = async (content?: string) => {
     const text = content !== undefined ? content : prompt;
     if (!text.trim()) return;
@@ -90,6 +145,13 @@ function BuilderLayoutInner() {
       { id: thinkingId, role: "ai", content: "", timestamp: now(), isThinking: true },
     ]);
 
+    // Route to targeted element edit if VE context is active
+    if (veSelection && sleekApp) {
+      await handleVEEdit(text, thinkingId);
+      return;
+    }
+
+    // Full generation via Sleek
     try {
       const res = await fetch("/api/ai/sleek", {
         method: "POST",
@@ -246,7 +308,7 @@ function BuilderLayoutInner() {
           onPromptChange={setPrompt}
           onSend={handleSend}
         />
-        <BuilderPreview />
+        <BuilderPreview onSend={handleSend} />
         <QRPanel />
       </div>
     </div>

@@ -16,32 +16,54 @@ export default function BuilderPromptBar({ value, onChange, onSend }: Props) {
   const [plusOpen, setPlusOpen] = useState(false);
   const [chipVisible, setChipVisible] = useState(false);
 
-  const { selection, setSelection, project } = useEditor();
+  const { selection, setSelection, project, veSelection, setVeSelection } = useEditor();
+
+  // Legacy component chip (existing feature)
   const selectedComponent = selection
     ? getComponent(project, selection.screenId, selection.componentId)
     : null;
   const chipLabel = selectedComponent ? getComponentLabel(selectedComponent) : null;
-  const hasContext = !!chipLabel;
+
+  // VE chips take priority over legacy chip
+  const hasVEContext = !!veSelection;
+  const hasContext = hasVEContext || !!chipLabel;
+
   const canSend = value.trim().length > 0 || hasContext;
 
   useEffect(() => {
-    if (selection) {
+    if (hasContext) {
       setChipVisible(false);
       const raf = requestAnimationFrame(() => setChipVisible(true));
       return () => cancelAnimationFrame(raf);
     } else {
       setChipVisible(false);
     }
-  }, [selection]);
+  }, [hasContext, veSelection, selection]);
 
   const handleSend = () => {
-    const contextPrefix = hasContext ? `[${chipLabel}] ` : "";
-    const fullContent = contextPrefix + value;
+    let prefix = "";
+    if (hasVEContext && veSelection) {
+      prefix = `[${veSelection.screenName}] [${veSelection.elementTag}] `;
+    } else if (chipLabel) {
+      prefix = `[${chipLabel}] `;
+    }
+    const fullContent = prefix + value;
     if (!fullContent.trim()) return;
     onSend(fullContent);
     onChange("");
     setSelection(null);
+    // keep veSelection — BuilderLayout clears it after successful edit
   };
+
+  const clearVEContext = () => {
+    setVeSelection(null);
+  };
+
+  const placeholder = hasVEContext && veSelection
+    ? `What changes do you want to make to the ${veSelection.elementTag}?`
+    : chipLabel
+      ? `Ask Evermade about ${chipLabel}…`
+      : "Ask Evermade…";
 
   return (
     <div style={{
@@ -54,46 +76,93 @@ export default function BuilderPromptBar({ value, onChange, onSend }: Props) {
       {/* Composer */}
       <div style={{
         borderRadius: 16,
-        border: `1px solid ${focused ? "rgba(79,142,255,0.35)" : "rgba(79,142,255,0.14)"}`,
+        border: `1px solid ${focused ? "rgba(79,142,255,0.35)" : hasVEContext ? "rgba(124,92,252,0.25)" : "rgba(79,142,255,0.14)"}`,
         background: focused ? "rgba(20,50,140,0.14)" : "rgba(10,16,50,0.55)",
         backdropFilter: "blur(30px)",
         WebkitBackdropFilter: "blur(30px)",
         boxShadow: focused
           ? "0 0 0 3px rgba(79,142,255,0.08), 0 4px 28px rgba(0,20,80,0.4)"
-          : "0 4px 20px rgba(0,0,0,0.3)",
+          : hasVEContext
+            ? "0 0 0 3px rgba(124,92,252,0.06), 0 4px 20px rgba(0,0,0,0.3)"
+            : "0 4px 20px rgba(0,0,0,0.3)",
         transition: "border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease",
         overflow: "hidden",
       }}>
 
-        {/* Context chip */}
+        {/* Context chips */}
         {hasContext && (
           <div style={{
             padding: "9px 12px 0",
             opacity: chipVisible ? 1 : 0,
             transform: chipVisible ? "translateY(0)" : "translateY(-3px)",
             transition: "opacity 0.18s ease, transform 0.18s ease",
+            display: "flex", alignItems: "center", gap: 5, flexWrap: "wrap",
           }}>
-            <div style={{
-              display: "inline-flex", alignItems: "center", gap: 5,
-              padding: "3px 7px 3px 6px", borderRadius: 20,
-              background: "rgba(124,92,252,0.1)",
-              border: "1px solid rgba(124,92,252,0.22)",
-            }}>
+            {hasVEContext && veSelection ? (
+              <>
+                {/* Screen chip */}
+                <div style={{
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  padding: "3px 7px 3px 6px", borderRadius: 20,
+                  background: "rgba(124,92,252,0.1)",
+                  border: "1px solid rgba(124,92,252,0.22)",
+                }}>
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="rgba(160,140,255,0.8)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                  </svg>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(160,140,255,0.9)", letterSpacing: 0.15 }}>
+                    {veSelection.screenName}
+                  </span>
+                </div>
+
+                {/* Element chip */}
+                <div style={{
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  padding: "3px 7px 3px 6px", borderRadius: 20,
+                  background: "rgba(124,92,252,0.1)",
+                  border: "1px solid rgba(124,92,252,0.22)",
+                }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "rgba(160,140,255,0.7)", letterSpacing: 0.1, fontFamily: "ui-monospace, monospace" }}>
+                    T
+                  </span>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(160,140,255,0.9)", letterSpacing: 0.15 }}>
+                    {veSelection.elementTag}
+                    {veSelection.elementText ? ` "${veSelection.elementText.slice(0, 22)}${veSelection.elementText.length > 22 ? "…" : ""}"` : ""}
+                  </span>
+                  <button type="button" onClick={clearVEContext} style={{
+                    width: 13, height: 13, borderRadius: "50%",
+                    background: "rgba(255,255,255,0.08)", border: "none",
+                    color: "rgba(255,255,255,0.45)", display: "flex",
+                    alignItems: "center", justifyContent: "center",
+                    cursor: "pointer", fontSize: 10, lineHeight: 1, padding: 0, flexShrink: 0,
+                  }}>×</button>
+                </div>
+              </>
+            ) : chipLabel ? (
+              /* Legacy single chip */
               <div style={{
-                width: 4, height: 4, borderRadius: "50%",
-                background: "#7c5cfc", boxShadow: "0 0 5px rgba(124,92,252,0.9)", flexShrink: 0,
-              }} />
-              <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(160,140,255,0.9)", letterSpacing: 0.15 }}>
-                {chipLabel}
-              </span>
-              <button type="button" onClick={() => setSelection(null)} style={{
-                width: 13, height: 13, borderRadius: "50%",
-                background: "rgba(255,255,255,0.08)", border: "none",
-                color: "rgba(255,255,255,0.45)", display: "flex",
-                alignItems: "center", justifyContent: "center",
-                cursor: "pointer", fontSize: 10, lineHeight: 1, padding: 0, flexShrink: 0,
-              }}>×</button>
-            </div>
+                display: "inline-flex", alignItems: "center", gap: 5,
+                padding: "3px 7px 3px 6px", borderRadius: 20,
+                background: "rgba(124,92,252,0.1)",
+                border: "1px solid rgba(124,92,252,0.22)",
+              }}>
+                <div style={{
+                  width: 4, height: 4, borderRadius: "50%",
+                  background: "#7c5cfc", boxShadow: "0 0 5px rgba(124,92,252,0.9)", flexShrink: 0,
+                }} />
+                <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(160,140,255,0.9)", letterSpacing: 0.15 }}>
+                  {chipLabel}
+                </span>
+                <button type="button" onClick={() => setSelection(null)} style={{
+                  width: 13, height: 13, borderRadius: "50%",
+                  background: "rgba(255,255,255,0.08)", border: "none",
+                  color: "rgba(255,255,255,0.45)", display: "flex",
+                  alignItems: "center", justifyContent: "center",
+                  cursor: "pointer", fontSize: 10, lineHeight: 1, padding: 0, flexShrink: 0,
+                }}>×</button>
+              </div>
+            ) : null}
           </div>
         )}
 
@@ -106,7 +175,7 @@ export default function BuilderPromptBar({ value, onChange, onSend }: Props) {
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
           }}
-          placeholder={hasContext ? `Ask Evermade about ${chipLabel}…` : "Ask Evermade…"}
+          placeholder={placeholder}
           rows={2}
           style={{
             width: "100%",

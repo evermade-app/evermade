@@ -1,8 +1,9 @@
 "use client";
 
 import { useRef, useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useEditor } from "@/lib/editor/EditorContext";
-import type { SleekPreviewScreen, SleekPreviewApp } from "@/lib/editor/EditorContext";
+import type { SleekPreviewScreen } from "@/lib/editor/EditorContext";
 
 // ── Dimensions ────────────────────────────────────────────────────────────────
 const CARD_W = 390;
@@ -24,8 +25,8 @@ const VE_CSS = `
 // ─────────────────────────────────────────────────────────────────────────────
 // SLEEK CANVAS
 // ─────────────────────────────────────────────────────────────────────────────
-function SleekCanvas() {
-  const { sleekApp, setSleekActiveIndex, setSleekApp } = useEditor();
+function SleekCanvas({ onSend }: { onSend?: (text: string) => void }) {
+  const { sleekApp, setSleekActiveIndex, setSleekApp, setVeSelection } = useEditor();
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
   const [visualEdit, setVisualEdit] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -33,7 +34,7 @@ function SleekCanvas() {
   const dragOrigin = useRef({ x: 0, scrollLeft: 0 });
 
   // Exit visual edit when app changes
-  useEffect(() => { setVisualEdit(false); }, [sleekApp?.id]);
+  useEffect(() => { setVisualEdit(false); setVeSelection(null); }, [sleekApp?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cmd/Ctrl + scroll → zoom
   useEffect(() => {
@@ -49,18 +50,22 @@ function SleekCanvas() {
     return () => el.removeEventListener("wheel", onWheel);
   }, []);
 
-  // Arrow keys → navigate screens
+  // Arrow keys → navigate screens; Escape → exit visual edit
   useEffect(() => {
     if (!sleekApp) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { setVisualEdit(false); return; }
+      if (e.key === "Escape") {
+        setVisualEdit(false);
+        setVeSelection(null);
+        return;
+      }
       if (visualEdit) return;
       if (e.key === "ArrowLeft") setSleekActiveIndex(Math.max(0, sleekApp.activeIndex - 1));
       if (e.key === "ArrowRight") setSleekActiveIndex(Math.min(sleekApp.screens.length - 1, sleekApp.activeIndex + 1));
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [sleekApp, setSleekActiveIndex, visualEdit]);
+  }, [sleekApp, setSleekActiveIndex, visualEdit, setVeSelection]);
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     const el = scrollRef.current;
@@ -91,6 +96,12 @@ function SleekCanvas() {
     const zW = (cW - PADDING_X * 2) / (CARD_W * count + GAP * (count - 1));
     const zH = (cH - PADDING_Y * 2) / CARD_H;
     setZoom(Math.min(1.2, zW, zH));
+  };
+
+  const toggleVE = () => {
+    const next = !visualEdit;
+    setVisualEdit(next);
+    if (!next) setVeSelection(null);
   };
 
   return (
@@ -138,8 +149,7 @@ function SleekCanvas() {
                 isActive={i === sleekApp.activeIndex}
                 zoom={zoom}
                 visualEdit={visualEdit}
-                sleekApp={sleekApp}
-                setSleekApp={setSleekApp}
+                onSend={onSend}
                 onClick={() => setSleekActiveIndex(i)}
               />
             ))
@@ -189,8 +199,8 @@ function SleekCanvas() {
         {/* Visual Edit toggle */}
         {sleekApp && (
           <button
-            onClick={() => setVisualEdit((v) => !v)}
-            title={visualEdit ? "Exit Visual Edit (Esc)" : "Visual Edit — click any element to edit"}
+            onClick={toggleVE}
+            title={visualEdit ? "Exit Visual Edit (Esc)" : "Visual Edit — click any element to edit with AI"}
             style={{
               display: "flex", alignItems: "center", gap: 5,
               padding: "5px 11px 5px 9px",
@@ -238,17 +248,12 @@ function SleekCanvas() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SCREEN CARD — with visual editor overlay
+// SCREEN CARD — with visual editor overlay + "Edit with AI" floating bar
 // ─────────────────────────────────────────────────────────────────────────────
-interface EditTarget {
-  el: Element;
-  tag: string;
-  text: string;
-  color: string;
-  bgColor: string;
-  fontSize: string;
+interface VEBar {
   clientX: number;
   clientY: number;
+  inputText: string;
 }
 
 function ScreenCard({
@@ -257,8 +262,7 @@ function ScreenCard({
   isActive,
   zoom,
   visualEdit,
-  sleekApp,
-  setSleekApp,
+  onSend,
   onClick,
 }: {
   screen: SleekPreviewScreen;
@@ -266,12 +270,12 @@ function ScreenCard({
   isActive: boolean;
   zoom: number;
   visualEdit: boolean;
-  sleekApp: SleekPreviewApp;
-  setSleekApp: (app: SleekPreviewApp | null) => void;
+  onSend?: (text: string) => void;
   onClick: () => void;
 }) {
+  const { setVeSelection } = useEditor();
   const [hovered, setHovered] = useState(false);
-  const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
+  const [veBar, setVeBar] = useState<VEBar | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const lastHoverRef = useRef<Element | null>(null);
 
@@ -296,17 +300,16 @@ function ScreenCard({
 
   useEffect(() => {
     if (visualEdit) {
-      // Try immediately, also on iframe load
       injectVeStyle();
       iframeRef.current?.addEventListener("load", injectVeStyle);
       return () => {
         iframeRef.current?.removeEventListener("load", injectVeStyle);
         removeVeStyle();
-        setEditTarget(null);
+        setVeBar(null);
       };
     } else {
       removeVeStyle();
-      setEditTarget(null);
+      setVeBar(null);
     }
   }, [visualEdit, injectVeStyle, removeVeStyle]);
 
@@ -349,56 +352,28 @@ function ScreenCard({
     const iframeWin = iframeRef.current?.contentWindow;
     const computed = iframeWin ? iframeWin.getComputedStyle(el as HTMLElement) : null;
 
-    setEditTarget({
-      el,
-      tag: el.tagName.toLowerCase(),
-      text: (el as HTMLElement).innerText ?? el.textContent ?? "",
-      color: computed?.color ?? "#ffffff",
-      bgColor: computed?.backgroundColor ?? "transparent",
-      fontSize: computed?.fontSize ?? "16px",
-      clientX: e.clientX,
-      clientY: e.clientY,
-    });
-  }, [getElAt]);
+    const elementText = ((el as HTMLElement).innerText ?? el.textContent ?? "").slice(0, 120).trim();
+    const elementTag = el.tagName.toLowerCase();
 
-  const applyEdit = useCallback((patch: Partial<EditTarget>) => {
-    if (!editTarget) return;
-    const el = editTarget.el as HTMLElement;
-
-    if (patch.text !== undefined && patch.text !== editTarget.text) {
-      // Only update leaf text nodes to avoid breaking child elements
-      if (!el.children.length) el.textContent = patch.text;
-      else el.childNodes.forEach((n) => { if (n.nodeType === Node.TEXT_NODE) n.textContent = patch.text!; });
-    }
-    if (patch.color !== undefined) el.style.color = patch.color;
-    if (patch.bgColor !== undefined) el.style.backgroundColor = patch.bgColor;
-    if (patch.fontSize !== undefined) el.style.fontSize = patch.fontSize;
-
-    setEditTarget((prev) => prev ? { ...prev, ...patch } : null);
-  }, [editTarget]);
-
-  const saveAndClose = useCallback(() => {
-    const iframe = iframeRef.current;
-    if (!iframe?.contentDocument) { setEditTarget(null); return; }
-
-    // Strip VE classes + style before serializing
-    const doc = iframe.contentDocument;
-    doc.querySelectorAll(".em-h,.em-s").forEach((el) => el.classList.remove("em-h", "em-s"));
-    doc.getElementById(VE_STYLE_ID)?.remove();
-
-    const newHtml = `<!DOCTYPE html>${doc.documentElement.outerHTML}`;
-
-    setSleekApp({
-      ...sleekApp,
-      screens: sleekApp.screens.map((s, i) =>
-        i === index ? { ...s, html: newHtml } : s
-      ),
+    // Set VE context in global state (picked up by left sidebar chips)
+    setVeSelection({
+      screenIndex: index,
+      screenName: screen.name,
+      elementTag,
+      elementText,
     });
 
-    setEditTarget(null);
-    // Re-inject style for continued editing
-    setTimeout(injectVeStyle, 50);
-  }, [editTarget, iframeRef, sleekApp, setSleekApp, index, injectVeStyle]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Show floating "Edit with AI" bar near click
+    setVeBar({ clientX: e.clientX, clientY: e.clientY, inputText: "" });
+
+    void computed; // used only for future ext
+  }, [getElAt, index, screen.name, setVeSelection]);
+
+  const submitVeBar = useCallback((text: string) => {
+    if (!text.trim()) return;
+    onSend?.(text);
+    setVeBar(null);
+  }, [onSend]);
 
   return (
     <div
@@ -469,169 +444,169 @@ function ScreenCard({
         )}
       </div>
 
-      {/* Edit panel — fixed position near click */}
-      {editTarget && (
-        <EditPanel
-          target={editTarget}
-          onApply={applyEdit}
-          onSave={saveAndClose}
+      {/* "Edit with AI" floating bar — rendered via portal so it escapes the scaled container */}
+      {veBar && typeof document !== "undefined" && createPortal(
+        <EditWithAIBar
+          bar={veBar}
+          onSubmit={submitVeBar}
+          onChange={(text) => setVeBar((b) => b ? { ...b, inputText: text } : null)}
           onClose={() => {
+            setVeBar(null);
             const doc = iframeRef.current?.contentDocument;
             doc?.querySelectorAll(".em-s").forEach((el) => el.classList.remove("em-s"));
-            setEditTarget(null);
+            setVeSelection(null);
           }}
-        />
+        />,
+        document.body
       )}
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// EDIT PANEL — floating card to edit the selected element
+// "EDIT WITH AI" FLOATING BAR
 // ─────────────────────────────────────────────────────────────────────────────
-function EditPanel({
-  target,
-  onApply,
-  onSave,
+function EditWithAIBar({
+  bar,
+  onSubmit,
+  onChange,
   onClose,
 }: {
-  target: EditTarget;
-  onApply: (patch: Partial<EditTarget>) => void;
-  onSave: () => void;
+  bar: VEBar;
+  onSubmit: (text: string) => void;
+  onChange: (text: string) => void;
   onClose: () => void;
 }) {
-  const [text, setText] = useState(target.text);
-  const [color, setColor] = useState(target.color);
-  const [bgColor, setBgColor] = useState(target.bgColor);
-  const [fontSize, setFontSize] = useState(parseInt(target.fontSize, 10) || 16);
-
-  // Panel position: clamp near click, always fully on-screen
-  const panelW = 240;
-  const panelH = 260;
-  const x = Math.min(target.clientX + 14, window.innerWidth - panelW - 10);
-  const y = Math.max(10, Math.min(target.clientY - 40, window.innerHeight - panelH - 10));
-
-  const isTextNode = !target.el.children.length || !!target.text.trim();
+  const barW = 420;
+  const x = Math.min(bar.clientX - barW / 2, window.innerWidth - barW - 12);
+  const y = Math.max(10, bar.clientY - 72);
 
   return (
     <div
       style={{
-        position: "fixed", top: y, left: x, zIndex: 9999,
-        width: panelW,
-        background: "rgba(12,12,20,0.97)",
-        border: "1px solid rgba(124,92,252,0.35)",
-        borderRadius: 14,
-        padding: "12px 14px 14px",
-        boxShadow: "0 16px 48px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04)",
-        backdropFilter: "blur(24px)",
-        WebkitBackdropFilter: "blur(24px)",
-        fontFamily: "-apple-system,BlinkMacSystemFont,'Geist','SF Pro Text',sans-serif",
+        position: "fixed",
+        top: y,
+        left: Math.max(12, x),
+        zIndex: 99999,
+        width: barW,
+        display: "flex",
+        alignItems: "center",
+        background: "rgba(10,10,18,0.96)",
+        border: "1px solid rgba(124,92,252,0.3)",
+        borderRadius: 100,
+        boxShadow: "0 12px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.04), 0 0 20px rgba(124,92,252,0.08)",
+        backdropFilter: "blur(32px)",
+        WebkitBackdropFilter: "blur(32px)",
+        overflow: "hidden",
+        animation: "veBarIn 0.18s cubic-bezier(0.22,1,0.36,1) both",
       }}
+      onClick={(e) => e.stopPropagation()}
     >
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#7c5cfc", boxShadow: "0 0 6px rgba(124,92,252,1)" }} />
-          <span style={{ fontSize: 11, fontWeight: 600, color: "rgba(180,160,255,0.9)", letterSpacing: 0.1 }}>
-            &lt;{target.tag}&gt;
-          </span>
-        </div>
-        <button onClick={onClose} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", cursor: "pointer", fontSize: 15, lineHeight: 1, padding: 2 }}>×</button>
+      <style>{`@keyframes veBarIn{from{opacity:0;transform:translateY(6px) scale(0.97)}to{opacity:1;transform:translateY(0) scale(1)}}`}</style>
+
+      {/* Sparkle icon */}
+      <div style={{ padding: "0 10px 0 14px", flexShrink: 0, color: "rgba(160,140,255,0.7)", display: "flex", alignItems: "center" }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 2l2.09 6.26L20 10l-5.91 1.74L12 18l-2.09-6.26L4 10l5.91-1.74z" opacity=".9"/>
+          <path d="M19 2l1 3 3 1-3 1-1 3-1-3-3-1 3-1z" opacity=".6"/>
+          <path d="M5 19l.75 2.25L8 22l-2.25.75L5 25l-.75-2.25L2 22l2.25-.75z" opacity=".5"/>
+        </svg>
       </div>
 
-      {/* Text */}
-      {isTextNode && (
-        <Field label="Text">
-          <textarea
-            value={text}
-            rows={2}
-            onChange={(e) => {
-              setText(e.target.value);
-              onApply({ text: e.target.value });
-            }}
-            style={{
-              width: "100%", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: 8, color: "rgba(255,255,255,0.85)", fontSize: 12, padding: "6px 8px",
-              resize: "none", outline: "none", fontFamily: "inherit",
-            }}
-          />
-        </Field>
-      )}
-
-      {/* Colors */}
-      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-        <Field label="Text color" flex>
-          <ColorRow value={color} onChange={(v) => { setColor(v); onApply({ color: v }); }} />
-        </Field>
-        <Field label="Background" flex>
-          <ColorRow value={bgColor} onChange={(v) => { setBgColor(v); onApply({ bgColor: v }); }} />
-        </Field>
-      </div>
-
-      {/* Font size */}
-      {isTextNode && (
-        <Field label="Font size" style={{ marginTop: 8 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <button onClick={() => { const v = Math.max(8, fontSize - 1); setFontSize(v); onApply({ fontSize: `${v}px` }); }}
-              style={stepBtn}>−</button>
-            <span style={{ flex: 1, textAlign: "center", fontSize: 12, color: "rgba(255,255,255,0.7)", fontWeight: 500 }}>{fontSize}px</span>
-            <button onClick={() => { const v = fontSize + 1; setFontSize(v); onApply({ fontSize: `${v}px` }); }}
-              style={stepBtn}>+</button>
-          </div>
-        </Field>
-      )}
-
-      {/* Actions */}
-      <div style={{ display: "flex", gap: 6, marginTop: 14 }}>
-        <button onClick={onClose} style={{
-          flex: 1, padding: "7px 0", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)",
-          background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.5)", fontSize: 12, cursor: "pointer", fontFamily: "inherit",
-        }}>Discard</button>
-        <button onClick={onSave} style={{
-          flex: 1, padding: "7px 0", borderRadius: 8, border: "none",
-          background: "linear-gradient(135deg,#7c5cfc,#4878ff)",
-          color: "white", fontSize: 12, fontWeight: 600, cursor: "pointer",
-          fontFamily: "inherit", boxShadow: "0 4px 14px rgba(124,92,252,0.4)",
-        }}>Save ✓</button>
-      </div>
-    </div>
-  );
-}
-
-// Tiny helpers
-const stepBtn: React.CSSProperties = {
-  width: 26, height: 26, borderRadius: 6, border: "1px solid rgba(255,255,255,0.1)",
-  background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.6)",
-  cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center",
-};
-
-function Field({ label, children, flex, style }: { label: string; children: React.ReactNode; flex?: boolean; style?: React.CSSProperties }) {
-  return (
-    <div style={{ flex: flex ? 1 : undefined, ...style }}>
-      <div style={{ fontSize: 10, color: "rgba(255,255,255,0.35)", marginBottom: 4, letterSpacing: 0.2 }}>{label}</div>
-      {children}
-    </div>
-  );
-}
-
-function ColorRow({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const safeHex = cssColorToHex(value);
-  return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-      <input type="color" value={safeHex} onChange={(e) => onChange(e.target.value)}
-        style={{ width: 28, height: 28, border: "none", borderRadius: 6, cursor: "pointer", padding: 0, background: "none" }}
+      {/* Text input */}
+      <input
+        autoFocus
+        value={bar.inputText}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") { e.preventDefault(); onSubmit(bar.inputText); }
+          if (e.key === "Escape") { e.preventDefault(); onClose(); }
+        }}
+        placeholder="Edit with AI…"
+        style={{
+          flex: 1,
+          background: "transparent",
+          border: "none",
+          outline: "none",
+          color: "rgba(255,255,255,0.88)",
+          fontSize: 13,
+          fontFamily: "-apple-system,BlinkMacSystemFont,'Geist','SF Pro Text',sans-serif",
+          letterSpacing: -0.1,
+          padding: "11px 4px",
+          caretColor: "#7c5cfc",
+        }}
       />
-      <span style={{ fontSize: 10, color: "rgba(255,255,255,0.4)", fontFamily: "monospace", letterSpacing: 0 }}>{safeHex}</span>
+
+      {/* Send button */}
+      <button
+        onClick={() => onSubmit(bar.inputText)}
+        disabled={!bar.inputText.trim()}
+        style={{
+          width: 30, height: 30, borderRadius: "50%", flexShrink: 0,
+          border: "none", marginRight: 6,
+          background: bar.inputText.trim()
+            ? "linear-gradient(135deg,#7c5cfc,#4878ff)"
+            : "rgba(255,255,255,0.07)",
+          color: bar.inputText.trim() ? "white" : "rgba(255,255,255,0.22)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          cursor: bar.inputText.trim() ? "pointer" : "default",
+          transition: "all 0.15s",
+          boxShadow: bar.inputText.trim() ? "0 3px 12px rgba(124,92,252,0.45)" : "none",
+        }}
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 19V5M5 12l7-7 7 7"/>
+        </svg>
+      </button>
+
+      {/* Divider */}
+      <div style={{ width: 1, height: 24, background: "rgba(255,255,255,0.08)", flexShrink: 0 }} />
+
+      {/* Quick-action icons */}
+      <div style={{ display: "flex", alignItems: "center", gap: 0, padding: "0 4px" }}>
+        <VEIconBtn title="Edit style" onClick={() => onChange("Change the style and colors")}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="13.5" cy="6.5" r="2.5"/><circle cx="6.5" cy="13.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>
+            <path d="M7.5 7.5C9 6 10 5 12 5M18 13c0 2-1 3-2.5 4.5"/>
+          </svg>
+        </VEIconBtn>
+        <VEIconBtn title="Edit text" onClick={() => onChange("Edit the text content")}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/>
+          </svg>
+        </VEIconBtn>
+        <VEIconBtn title="Change layout" onClick={() => onChange("Change the layout and spacing")}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+          </svg>
+        </VEIconBtn>
+        <VEIconBtn title="Delete element" onClick={() => onSubmit("Remove this element completely")}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+          </svg>
+        </VEIconBtn>
+      </div>
     </div>
   );
 }
 
-function cssColorToHex(color: string): string {
-  if (!color || color === "transparent" || color === "rgba(0, 0, 0, 0)") return "#000000";
-  if (color.startsWith("#")) return color.slice(0, 7);
-  const m = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-  if (!m) return "#ffffff";
-  return "#" + [m[1], m[2], m[3]].map((n) => parseInt(n).toString(16).padStart(2, "0")).join("");
+function VEIconBtn({ title, onClick, children }: { title: string; onClick: () => void; children: React.ReactNode }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <button
+      title={title}
+      onClick={onClick}
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        width: 32, height: 32, border: "none", borderRadius: 8,
+        background: hov ? "rgba(255,255,255,0.07)" : "none",
+        color: hov ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.35)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        cursor: "pointer", flexShrink: 0, transition: "all 0.12s",
+      }}
+    >{children}</button>
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -673,6 +648,6 @@ function ZoomBtn({ onClick, title, children }: { onClick: () => void; title: str
 // ─────────────────────────────────────────────────────────────────────────────
 // ROOT EXPORT
 // ─────────────────────────────────────────────────────────────────────────────
-export default function BuilderPreview() {
-  return <SleekCanvas />;
+export default function BuilderPreview({ onSend }: { onSend?: (text: string) => void }) {
+  return <SleekCanvas onSend={onSend} />;
 }
