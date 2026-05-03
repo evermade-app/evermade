@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import PricingModal from "./PricingModal";
@@ -158,11 +159,23 @@ function RailIcon({
   pill?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
+  const [tipPos, setTipPos] = useState({ top: 0, left: 0 });
+  const btnRef = useRef<HTMLButtonElement>(null);
+
+  const handleMouseEnter = () => {
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setTipPos({ top: r.top + r.height / 2, left: r.right + 10 });
+    }
+    setHovered(true);
+  };
+
   return (
-    <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+    <>
       <button
+        ref={btnRef}
         onClick={onClick}
-        onMouseEnter={() => setHovered(true)}
+        onMouseEnter={handleMouseEnter}
         onMouseLeave={() => setHovered(false)}
         style={{
           width: 36,
@@ -186,35 +199,37 @@ function RailIcon({
         {icon}
       </button>
 
-      {/* Tooltip */}
-      {title && hovered && (
+      {/* Tooltip rendered in portal to escape overflow:hidden containers */}
+      {title && hovered && typeof document !== "undefined" && createPortal(
         <div style={{
-          position: "absolute",
-          left: "calc(100% + 10px)",
-          top: "50%",
+          position: "fixed",
+          top: tipPos.top,
+          left: tipPos.left,
           transform: "translateY(-50%)",
           pointerEvents: "none",
-          zIndex: 100,
-          display: "flex", alignItems: "center",
+          zIndex: 9999,
           animation: "railTip 0.14s cubic-bezier(0.22,1,0.36,1) both",
+          fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
         }}>
+          <style>{`@keyframes railTip{from{opacity:0;transform:translateY(-50%) translateX(-4px)}to{opacity:1;transform:translateY(-50%) translateX(0)}}`}</style>
           <div style={{
-            background: "rgba(18,18,28,0.97)",
+            background: "rgba(14,14,22,0.97)",
             border: "1px solid rgba(255,255,255,0.1)",
             borderRadius: 9,
-            padding: "6px 11px",
+            padding: "6px 12px",
             fontSize: 12.5,
             fontWeight: 500,
             color: "rgba(255,255,255,0.82)",
             whiteSpace: "nowrap",
             letterSpacing: -0.1,
-            boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.6)",
           }}>
             {title}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 }
 
@@ -326,8 +341,6 @@ export default function DashboardSidebar() {
             fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
           }}
         >
-          <style>{`@keyframes railTip{from{opacity:0;transform:translateY(-50%) translateX(-4px)}to{opacity:1;transform:translateY(-50%) translateX(0)}}`}</style>
-
           {/* Workspace logo */}
           <div style={{ paddingTop: 10, paddingBottom: 8, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
             <div style={{
