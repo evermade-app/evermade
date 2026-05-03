@@ -7,6 +7,7 @@ import { useSession } from "next-auth/react";
 import PricingModal from "./PricingModal";
 import BuyCreditsModal from "./BuyCreditsModal";
 import ShareEvermadeModal from "./ShareEvermadeModal";
+import CreditsModal from "./CreditsModal";
 
 const SIDEBAR_WIDTH = 258;
 const RAIL_WIDTH = 52;
@@ -312,6 +313,7 @@ export default function DashboardSidebar() {
   const [showPricing, setShowPricing] = useState(false);
   const [showBuyCredits, setShowBuyCredits] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  const [showCredits, setShowCredits] = useState(false);
   const { data: session } = useSession();
   const router = useRouter();
 
@@ -557,16 +559,22 @@ export default function DashboardSidebar() {
 
         {/* Bottom — Credits + Upgrade */}
         <div style={{ borderTop: "1px solid rgba(255,255,255,0.05)", padding: "10px 14px", flexShrink: 0 }}>
-          <div style={{ marginBottom: 10 }}>
+          <button
+            onClick={() => setShowCredits(true)}
+            style={{
+              width: "100%", marginBottom: 10, background: "none", border: "none",
+              cursor: "pointer", padding: 0, textAlign: "left",
+            }}
+          >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
-              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", fontWeight: 500 }}>Credits</span>
-              <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.85)" }}>5 left</span>
+              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", fontWeight: 500, fontFamily: "inherit" }}>Credits</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.85)", fontFamily: "inherit" }}>View usage →</span>
             </div>
             <div style={{ height: 3, borderRadius: 2, background: "rgba(255,255,255,0.08)" }}>
-              <div style={{ width: "100%", height: "100%", borderRadius: 2, background: "linear-gradient(90deg, #7c5cfc 0%, #4878ff 100%)" }} />
+              <div style={{ width: "40%", height: "100%", borderRadius: 2, background: "linear-gradient(90deg, #7c5cfc 0%, #4878ff 100%)" }} />
             </div>
-            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.22)", marginTop: 4 }}>5/5 daily · resets in 5 hours</div>
-          </div>
+            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.22)", marginTop: 4, fontFamily: "inherit" }}>Click to see credits & usage</div>
+          </button>
 
           <button
             onClick={() => setShowPricing(true)}
@@ -620,6 +628,12 @@ export default function DashboardSidebar() {
       {showPricing && <PricingModal onClose={() => setShowPricing(false)} />}
       {showBuyCredits && <BuyCreditsModal onClose={() => setShowBuyCredits(false)} />}
       {showShare && <ShareEvermadeModal onClose={() => setShowShare(false)} />}
+      {showCredits && (
+        <CreditsModal
+          onClose={() => setShowCredits(false)}
+          onBuyCredits={() => setShowBuyCredits(true)}
+        />
+      )}
     </>
   );
 }

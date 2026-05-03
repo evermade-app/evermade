@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/nextauth";
 import OpenAI from "openai";
+import { deductCredits, checkCreditsBeforeAction } from "@/lib/credits";
+import { CREDIT_COSTS } from "@/lib/evermade/plans";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -28,6 +30,20 @@ export async function POST(req: NextRequest) {
 
     if (!screenHtml || !editRequest?.trim()) {
       return NextResponse.json({ error: "screenHtml and editRequest are required" }, { status: 400 });
+    }
+
+    // ── Credit check ──────────────────────────────────────────────────────────
+    const userId = session.user.uid;
+    const { allowed, remaining } = await checkCreditsBeforeAction(
+      userId,
+      CREDIT_COSTS.editChat,
+      session.user.email ?? undefined,
+    );
+    if (!allowed) {
+      return NextResponse.json(
+        { error: `Not enough credits (need ${CREDIT_COSTS.editChat}, have ${remaining}). Upgrade or buy more credits.` },
+        { status: 403 },
+      );
     }
 
     const elementDesc = elementText
@@ -70,6 +86,9 @@ ${screenHtml}`,
       .replace(/^```\s*/i, "")
       .replace(/\s*```$/i, "")
       .trim();
+
+    // Deduct after successful edit
+    await deductCredits(userId, CREDIT_COSTS.editChat, "edit_element", `Edited <${elementTag}> in ${screenName}`);
 
     return NextResponse.json({ html: cleaned });
   } catch (err) {
