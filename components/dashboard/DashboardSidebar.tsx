@@ -159,32 +159,62 @@ function RailIcon({
 }) {
   const [hovered, setHovered] = useState(false);
   return (
-    <button
-      title={title}
-      onClick={onClick}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        width: 36,
-        height: 36,
-        borderRadius: pill ? 999 : 10,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: active
-          ? "rgba(255,255,255,0.12)"
-          : hovered
-          ? "rgba(255,255,255,0.07)"
-          : "transparent",
-        border: "none",
-        cursor: "pointer",
-        color: active ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.45)",
-        transition: "background 0.12s ease, color 0.12s ease",
-        flexShrink: 0,
-      }}
-    >
-      {icon}
-    </button>
+    <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+      <button
+        onClick={onClick}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        style={{
+          width: 36,
+          height: 36,
+          borderRadius: pill ? 999 : 10,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: active
+            ? "rgba(255,255,255,0.12)"
+            : hovered
+            ? "rgba(255,255,255,0.07)"
+            : "transparent",
+          border: "none",
+          cursor: "pointer",
+          color: active ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.45)",
+          transition: "background 0.12s ease, color 0.12s ease",
+          flexShrink: 0,
+        }}
+      >
+        {icon}
+      </button>
+
+      {/* Tooltip */}
+      {title && hovered && (
+        <div style={{
+          position: "absolute",
+          left: "calc(100% + 10px)",
+          top: "50%",
+          transform: "translateY(-50%)",
+          pointerEvents: "none",
+          zIndex: 100,
+          display: "flex", alignItems: "center",
+          animation: "railTip 0.14s cubic-bezier(0.22,1,0.36,1) both",
+        }}>
+          <div style={{
+            background: "rgba(18,18,28,0.97)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            borderRadius: 9,
+            padding: "6px 11px",
+            fontSize: 12.5,
+            fontWeight: 500,
+            color: "rgba(255,255,255,0.82)",
+            whiteSpace: "nowrap",
+            letterSpacing: -0.1,
+            boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
+          }}>
+            {title}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -296,6 +326,8 @@ export default function DashboardSidebar() {
             fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
           }}
         >
+          <style>{`@keyframes railTip{from{opacity:0;transform:translateY(-50%) translateX(-4px)}to{opacity:1;transform:translateY(-50%) translateX(0)}}`}</style>
+
           {/* Workspace logo */}
           <div style={{ paddingTop: 10, paddingBottom: 8, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
             <div style={{
