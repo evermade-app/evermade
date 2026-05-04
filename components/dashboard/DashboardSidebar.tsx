@@ -443,6 +443,7 @@ export default function DashboardSidebar() {
   const [showCredits, setShowCredits] = useState(false);
   const [credits, setCredits] = useState<CreditInfo | null>(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [userRowHovered, setUserRowHovered] = useState(false);
   const [theme, setTheme] = useState<"system" | "light" | "dark">("dark");
   const [menuPos, setMenuPos] = useState({ bottom: 0, left: 0, width: 0 });
   const userRowRef = useRef<HTMLDivElement>(null);
@@ -809,10 +810,14 @@ export default function DashboardSidebar() {
         <div
           ref={userRowRef}
           onClick={openUserMenu}
+          onMouseEnter={() => setUserRowHovered(true)}
+          onMouseLeave={() => setUserRowHovered(false)}
           style={{
             borderTop: "1px solid rgba(255,255,255,0.05)", padding: "10px 14px",
             display: "flex", alignItems: "center", gap: 9, flexShrink: 0,
             cursor: "pointer",
+            background: userRowHovered ? "rgba(255,255,255,0.045)" : "transparent",
+            transition: "background 0.12s ease",
           }}
         >
           {avatarImage ? (
