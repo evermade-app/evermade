@@ -69,7 +69,7 @@ export function normalizePlan(raw: string | null | undefined): PlanId {
   if (raw in PLANS) return raw as PlanId;
   // Map old plan names → new
   const legacy: Record<string, PlanId> = {
-    starter: "everpro",
+    starter: "free",   // was incorrectly used as default; maps to free
     pro:     "everpro",
     agency:  "evermax",
   };

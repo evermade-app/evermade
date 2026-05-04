@@ -30,19 +30,20 @@ export const authOptions: NextAuthOptions = {
           if (profile) {
             token.uid = profile.id as string;
             // Founder always gets owner plan
-            token.plan = isFounder ? "owner" : ((profile.plan as string) ?? "starter");
+            token.plan = isFounder ? "owner" : ((profile.plan as string) ?? "free");
             // Persist owner plan to DB for founder
             if (isFounder && profile.plan !== "owner") {
               await supabase.from("profiles").update({ plan: "owner" }).eq("id", profile.id);
             }
           } else {
             const id = crypto.randomUUID();
-            const plan = isFounder ? "owner" : "starter";
+            const plan = isFounder ? "owner" : "free";
             await supabase.from("profiles").insert({
               id,
               email,
               plan,
-              screens_used_this_month: 0,
+              credits_used: 0,
+              credits_addons: 0,
             });
             token.uid = id;
             token.plan = plan;
@@ -50,7 +51,7 @@ export const authOptions: NextAuthOptions = {
         } catch (err) {
           console.error("[nextauth] profile sync error:", err);
           token.uid = token.sub ?? crypto.randomUUID();
-          token.plan = "starter";
+          token.plan = "free";
         }
       }
       return token;

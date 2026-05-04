@@ -54,14 +54,10 @@ export function getProjects(): ProjectMeta[] {
   if (typeof window === "undefined") return [];
   try {
     const raw = localStorage.getItem(STORE_KEY);
-    if (!raw) {
-      const defaults = seedDefaults();
-      localStorage.setItem(STORE_KEY, JSON.stringify(defaults));
-      return defaults;
-    }
+    if (!raw) return [];
     return JSON.parse(raw) as ProjectMeta[];
   } catch {
-    return seedDefaults();
+    return [];
   }
 }
 
