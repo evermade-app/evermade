@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import PricingModal from "./PricingModal";
 import BuyCreditsModal from "./BuyCreditsModal";
 import ShareEvermadeModal from "./ShareEvermadeModal";
@@ -160,6 +160,73 @@ const ExpandIcon = () => (
 const ChevronDownIcon = () => (
   <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
     <path d="M2.5 4.5L6 8l3.5-3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const ChevronUpDownIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+    <path d="M4 5.5L7 3l3 2.5M4 8.5L7 11l3-2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const MonitorIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+    <rect x="1" y="2" width="13" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
+    <path d="M5 13h5M7.5 11v2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+  </svg>
+);
+
+const SunIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+    <circle cx="7.5" cy="7.5" r="2.5" stroke="currentColor" strokeWidth="1.3" />
+    <path d="M7.5 1v1.5M7.5 12.5V14M14 7.5h-1.5M2.5 7.5H1M12 3L11 4M4 11l-1 1M12 12l-1-1M4 4L3 3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+  </svg>
+);
+
+const MoonIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 15 15" fill="none">
+    <path d="M12.5 9.5A6 6 0 015.5 2.5a6 6 0 100 10 6 6 0 007-3z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+  </svg>
+);
+
+const GearIcon = () => (
+  <svg width="17" height="17" viewBox="0 0 15 15" fill="none">
+    <circle cx="7.5" cy="7.5" r="2" stroke="currentColor" strokeWidth="1.35" />
+    <path d="M7.5 1v1.5m0 9V13m-4.95-9.45L3.6 4.6M11.4 10.4l1.05 1.05M1 7.5h1.5m9 0H13M2.55 11.45L3.6 10.4M11.4 4.6l1.05-1.05" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" />
+  </svg>
+);
+
+const ChatIcon = () => (
+  <svg width="17" height="17" viewBox="0 0 15 15" fill="none">
+    <path d="M1 2.5A1.5 1.5 0 012.5 1h10A1.5 1.5 0 0114 2.5v7A1.5 1.5 0 0112.5 11H8l-3 3v-3H2.5A1.5 1.5 0 011 9.5v-7z" stroke="currentColor" strokeWidth="1.35" strokeLinejoin="round" />
+  </svg>
+);
+
+const DiscordIcon = () => (
+  <svg width="17" height="17" viewBox="0 0 15 15" fill="none">
+    <path d="M11 2.5s-1.5-.5-3.5-.5S4 2.5 4 2.5A9.5 9.5 0 002 8.5s1 1.5 3 2l.5-1a5 5 0 002 .5 5 5 0 002-.5l.5 1c2-.5 3-2 3-2A9.5 9.5 0 0011 2.5z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+    <circle cx="5.5" cy="8" r="1" fill="currentColor" />
+    <circle cx="9.5" cy="8" r="1" fill="currentColor" />
+  </svg>
+);
+
+const HandshakeIcon = () => (
+  <svg width="17" height="17" viewBox="0 0 15 15" fill="none">
+    <path d="M1 5.5l3-2h3l2 2 1-1h2l2 2-4 4-2-2-1 1-2-1L1 5.5z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+    <path d="M5.5 8.5l1 1" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+  </svg>
+);
+
+const ExternalArrowIcon = () => (
+  <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+    <path d="M2.5 10.5L10 3M10 3H5M10 3v5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const SignOutIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 15 15" fill="none">
+    <path d="M5.5 2H3a1 1 0 00-1 1v9a1 1 0 001 1h2.5" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" />
+    <path d="M9.5 10l3-2.5L9.5 5M12.5 7.5h-7" stroke="currentColor" strokeWidth="1.35" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
@@ -331,6 +398,40 @@ function Divider() {
   return <div style={{ height: 1, background: "rgba(255,255,255,0.05)", margin: "6px 14px" }} />;
 }
 
+function MenuRow({ icon, label, external, red, onClick }: {
+  icon: React.ReactNode;
+  label: string;
+  external?: boolean;
+  red?: boolean;
+  onClick?: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <button
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        width: "100%", display: "flex", alignItems: "center", gap: 10,
+        padding: "8px 10px", borderRadius: 9, background: hovered ? "rgba(255,255,255,0.055)" : "transparent",
+        border: "none", cursor: "pointer", textAlign: "left", transition: "background 0.1s ease",
+      }}
+    >
+      <span style={{ color: red ? "rgba(255,80,65,0.75)" : "rgba(255,255,255,0.42)", display: "flex", alignItems: "center", flexShrink: 0 }}>
+        {icon}
+      </span>
+      <span style={{ fontSize: 13, fontWeight: 450, color: red ? "#ff5041" : "rgba(255,255,255,0.82)", flex: 1, letterSpacing: -0.1 }}>
+        {label}
+      </span>
+      {external && (
+        <span style={{ color: "rgba(255,255,255,0.25)", display: "flex", alignItems: "center", flexShrink: 0 }}>
+          <ExternalArrowIcon />
+        </span>
+      )}
+    </button>
+  );
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 
 export default function DashboardSidebar() {
@@ -341,6 +442,11 @@ export default function DashboardSidebar() {
   const [showShare, setShowShare] = useState(false);
   const [showCredits, setShowCredits] = useState(false);
   const [credits, setCredits] = useState<CreditInfo | null>(null);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [theme, setTheme] = useState<"system" | "light" | "dark">("dark");
+  const [menuPos, setMenuPos] = useState({ bottom: 0, left: 0, width: 0 });
+  const userRowRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
   const { data: session } = useSession();
   const router = useRouter();
 
@@ -348,6 +454,7 @@ export default function DashboardSidebar() {
   const firstName = fullName.split(" ")[0] || session?.user?.email?.split("@")[0] || "User";
   const avatarLetter = firstName.charAt(0).toUpperCase();
   const avatarImage = session?.user?.image ?? null;
+  const userEmail = session?.user?.email ?? "";
 
   useEffect(() => {
     fetch("/api/credits")
@@ -357,6 +464,31 @@ export default function DashboardSidebar() {
       })
       .catch(() => {});
   }, []);
+
+  // Close menu on outside click
+  useEffect(() => {
+    if (!showUserMenu) return;
+    function onDown(e: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setShowUserMenu(false);
+      }
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [showUserMenu]);
+
+  function openUserMenu() {
+    if (userRowRef.current) {
+      const r = userRowRef.current.getBoundingClientRect();
+      setMenuPos({ bottom: window.innerHeight - r.top + 8, left: r.left, width: r.width });
+    }
+    setShowUserMenu((v) => !v);
+  }
+
+  async function handleSignOut() {
+    setShowUserMenu(false);
+    await signOut({ callbackUrl: "/login" });
+  }
 
   return (
     <>
@@ -673,19 +805,19 @@ export default function DashboardSidebar() {
           <SidebarNavItem icon={<GiftIcon />} label="Share Evermade" badgeGreen="+100" onClick={() => setShowShare(true)} />
         </div>
 
-        {/* User row */}
-        <div style={{
-          borderTop: "1px solid rgba(255,255,255,0.05)", padding: "10px 14px",
-          display: "flex", alignItems: "center", gap: 9, flexShrink: 0,
-        }}>
-          {/* Avatar — real Google photo or initial fallback */}
+        {/* User row — click opens profile menu */}
+        <div
+          ref={userRowRef}
+          onClick={openUserMenu}
+          style={{
+            borderTop: "1px solid rgba(255,255,255,0.05)", padding: "10px 14px",
+            display: "flex", alignItems: "center", gap: 9, flexShrink: 0,
+            cursor: "pointer",
+          }}
+        >
           {avatarImage ? (
-            <img
-              src={avatarImage}
-              alt={firstName}
-              referrerPolicy="no-referrer"
-              style={{ width: 30, height: 30, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
-            />
+            <img src={avatarImage} alt={firstName} referrerPolicy="no-referrer"
+              style={{ width: 30, height: 30, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
           ) : (
             <div style={{
               width: 30, height: 30, borderRadius: "50%",
@@ -694,24 +826,105 @@ export default function DashboardSidebar() {
               fontSize: 13, fontWeight: 700, color: "white", flexShrink: 0,
             }}>{avatarLetter}</div>
           )}
-          {/* First name only */}
           <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.88)", letterSpacing: -0.1, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {firstName}
           </span>
-          {/* Message icon with red dot */}
-          <div style={{ position: "relative", flexShrink: 0 }}>
+          <span style={{ color: "rgba(255,255,255,0.3)", display: "flex", flexShrink: 0 }}><ChevronUpDownIcon /></span>
+          <div style={{ position: "relative", flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
             <button style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.35)", display: "flex", padding: 4, borderRadius: 6 }}>
               <MailIcon />
             </button>
-            <span style={{
-              position: "absolute", top: 3, right: 3,
-              width: 7, height: 7, borderRadius: "50%",
-              background: "#ff3b30", border: "1.5px solid rgba(10,10,13,0.97)",
-              pointerEvents: "none",
-            }} />
+            <span style={{ position: "absolute", top: 3, right: 3, width: 7, height: 7, borderRadius: "50%", background: "#ff3b30", border: "1.5px solid rgba(10,10,13,0.97)", pointerEvents: "none" }} />
           </div>
         </div>
       </aside>
+      {/* ── User profile popup ── */}
+      {showUserMenu && typeof document !== "undefined" && createPortal(
+        <div
+          ref={userMenuRef}
+          style={{
+            position: "fixed",
+            bottom: menuPos.bottom,
+            left: menuPos.left,
+            width: menuPos.width,
+            background: "rgba(13,13,18,0.98)",
+            backdropFilter: "blur(32px)",
+            WebkitBackdropFilter: "blur(32px)",
+            border: "1px solid rgba(255,255,255,0.09)",
+            borderRadius: 16,
+            boxShadow: "0 -4px 48px rgba(0,0,0,0.7), 0 1px 0 rgba(255,255,255,0.04) inset",
+            zIndex: 9999,
+            overflow: "hidden",
+            animation: "userMenuSlide 0.18s cubic-bezier(0.22,1,0.36,1) both",
+            fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+          }}
+        >
+          <style>{`@keyframes userMenuSlide{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}`}</style>
+
+          {/* Header */}
+          <div style={{ padding: "16px 16px 14px", display: "flex", alignItems: "center", gap: 12, borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+            {avatarImage ? (
+              <img src={avatarImage} alt={fullName} referrerPolicy="no-referrer"
+                style={{ width: 44, height: 44, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+            ) : (
+              <div style={{ width: 44, height: 44, borderRadius: "50%", background: "linear-gradient(135deg,#7c5cfc,#4878ff)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 700, color: "white", flexShrink: 0 }}>
+                {avatarLetter}
+              </div>
+            )}
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 650, color: "rgba(255,255,255,0.95)", letterSpacing: -0.2, lineHeight: 1.25 }}>{fullName || firstName}</div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.38)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{userEmail}</div>
+            </div>
+          </div>
+
+          {/* Theme switcher */}
+          <div style={{ padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+            <span style={{ fontSize: 13, color: "rgba(255,255,255,0.55)", fontWeight: 500 }}>Theme</span>
+            <div style={{ display: "flex", gap: 2, background: "rgba(255,255,255,0.06)", borderRadius: 10, padding: 3 }}>
+              {([
+                { id: "system", icon: <MonitorIcon /> },
+                { id: "light",  icon: <SunIcon />     },
+                { id: "dark",   icon: <MoonIcon />    },
+              ] as const).map(({ id, icon }) => (
+                <button
+                  key={id}
+                  onClick={() => setTheme(id)}
+                  style={{
+                    width: 34, height: 30, borderRadius: 8, border: "none", cursor: "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    background: theme === id ? "rgba(255,255,255,0.13)" : "transparent",
+                    color: theme === id ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.35)",
+                    transition: "all 0.12s ease",
+                    boxShadow: theme === id ? "0 1px 3px rgba(0,0,0,0.4)" : "none",
+                  }}
+                >
+                  {icon}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Menu items */}
+          <div style={{ padding: "6px 8px" }}>
+            {[
+              { icon: <GearIcon />,       label: "Settings",             external: false, onClick: () => setShowUserMenu(false) },
+              { icon: <ChatIcon />,       label: "Help & Support",        external: false, onClick: () => setShowUserMenu(false) },
+              { icon: <DiscordIcon />,    label: "Community",             external: true,  onClick: () => setShowUserMenu(false) },
+              { icon: <BookIcon />,       label: "Docs",                  external: true,  onClick: () => setShowUserMenu(false) },
+              { icon: <HandshakeIcon />, label: "Become an affiliate",   external: true,  onClick: () => setShowUserMenu(false) },
+            ].map(({ icon, label, external, onClick }) => (
+              <MenuRow key={label} icon={icon} label={label} external={external} onClick={onClick} />
+            ))}
+          </div>
+
+          {/* Sign out */}
+          <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", padding: "6px 8px 8px" }}>
+            <MenuRow icon={<SignOutIcon />} label="Sign out" red onClick={handleSignOut} />
+          </div>
+        </div>,
+        document.body,
+      )}
+
       {showPricing && <PricingModal onClose={() => setShowPricing(false)} />}
       {showBuyCredits && <BuyCreditsModal onClose={() => setShowBuyCredits(false)} />}
       {showShare && <ShareEvermadeModal onClose={() => setShowShare(false)} />}
