@@ -3,9 +3,19 @@
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { saveProject } from "@/lib/editor/projectPersistence";
-import { createProjectMeta } from "@/lib/projects-store";
 import type { Project } from "@/lib/editor/project";
 import DashboardHeroNav from "@/components/dashboard/DashboardHeroNav";
+
+const GRADIENTS = [
+  "linear-gradient(135deg,#1a1a2e 0%,#16213e 45%,#0f3460 100%)",
+  "linear-gradient(135deg,#0f0c29 0%,#302b63 50%,#24243e 100%)",
+  "linear-gradient(135deg,#0d0d1a 0%,#1a0533 50%,#2d1b69 100%)",
+  "linear-gradient(135deg,#0a0a12 0%,#1e3a5f 50%,#0d2137 100%)",
+  "linear-gradient(135deg,#0f1923 0%,#1a3a4a 50%,#0d2f3f 100%)",
+  "linear-gradient(135deg,#1a0a2e 0%,#3d1560 50%,#6b21a8 100%)",
+  "linear-gradient(135deg,#0a1628 0%,#1e3a5f 50%,#2563eb 100%)",
+  "linear-gradient(135deg,#1a1200 0%,#3d2c00 50%,#78540e 100%)",
+];
 
 const LOGIN_VIDEO_URL =
   "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260307_083826_e938b29f-a43a-41ec-a153-3d4730578ab8.mp4";
@@ -48,14 +58,23 @@ function NewProjectInner() {
   const searchParams = useSearchParams();
   const [prompt, setPrompt] = useState(searchParams.get("prompt") ?? "");
 
-  function handleGenerate() {
+  async function handleGenerate() {
     const trimmed = prompt.trim();
     const words = trimmed.split(/\s+/).slice(0, 3).join(" ");
     const name = words || "My App";
+    const id = `proj-${Date.now()}`;
+    const gradient = GRADIENTS[Math.floor(Math.random() * GRADIENTS.length)];
 
     const project = makeBlankProject(name);
+    project.id = id;
     saveProject(project);
-    createProjectMeta(name);
+
+    // Persist to Supabase (fire-and-forget — don't block navigation on failure)
+    fetch("/api/apps", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, name, gradient }),
+    }).catch(console.error);
 
     if (trimmed) {
       localStorage.setItem("evermade-pending-prompt", trimmed);

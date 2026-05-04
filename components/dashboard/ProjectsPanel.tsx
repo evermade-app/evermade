@@ -2,13 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import {
-  getProjects,
-  deleteProject,
-  type ProjectMeta,
-  timeAgo,
-} from "@/lib/projects-store";
-import { clearProject } from "@/lib/editor/projectPersistence";
+import { type ProjectMeta, timeAgo } from "@/lib/projects-store";
 
 // ─── Template catalogue ───────────────────────────────────────────────────────
 
@@ -300,23 +294,45 @@ export default function ProjectsPanel() {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("projects");
   const [projects, setProjects] = useState<ProjectMeta[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setProjects(getProjects());
+    fetch("/api/apps")
+      .then((r) => r.json())
+      .then((data: ProjectMeta[]) => {
+        if (Array.isArray(data)) setProjects(data);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }, []);
 
-  const handleDelete = useCallback((e: React.MouseEvent, id: string) => {
+  const handleDelete = useCallback(async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    // Remove from metadata list
-    setProjects(deleteProject(id));
-    // Wipe the actual project data so the builder starts fresh next time
-    clearProject();
+    setProjects((prev) => prev.filter((p) => p.id !== id));
+    await fetch(`/api/apps/${id}`, { method: "DELETE" }).catch(console.error);
   }, []);
 
   const handleOpen = useCallback((id: string) => {
     localStorage.setItem("evermade-active-project", id);
     router.push("/builder");
   }, [router]);
+
+  // ── Skeleton cards while loading ────────────────────────────────────────────
+  if (loading) {
+    return (
+      <section style={{ width: "100%", maxWidth: 1200, margin: "0 auto", padding: "0 48px 96px" }}>
+        <div className="evermade-shimmer-shell" style={{ borderRadius: 20, padding: 1.5 }}>
+          <div style={{ borderRadius: 19, background: "rgba(8,8,14,0.82)", backdropFilter: "blur(32px)", padding: "22px 22px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 16 }}>
+              {[...Array(4)].map((_, i) => (
+                <div key={i} style={{ height: 160, borderRadius: 10, background: "rgba(255,255,255,0.04)", animation: "pulse 1.5s ease-in-out infinite" }} />
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
 
   const handleUseTemplate = useCallback((templateId: string) => {
     router.push(`/new-project?template=${templateId}`);

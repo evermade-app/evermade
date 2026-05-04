@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import VideoBackground from "@/components/hero/VideoBackground";
 import HeroBadge from "@/components/hero/HeroBadge";
 import HeroHeadline from "@/components/hero/HeroHeadline";
@@ -9,6 +9,14 @@ import DashboardHeroNav from "@/components/dashboard/DashboardHeroNav";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
 import ProjectsPanel from "@/components/dashboard/ProjectsPanel";
 import { useSession } from "next-auth/react";
+
+const USER_SCOPED_KEYS = [
+  "evermade-projects-v1",
+  "evermade-project-v1",
+  "evermade-sleek-app-v1",
+  "evermade-chat-v1",
+  "evermade-active-project",
+];
 
 function extractFirstName(fullName?: string | null, email?: string | null): string | undefined {
   if (fullName) {
@@ -25,6 +33,18 @@ function extractFirstName(fullName?: string | null, email?: string | null): stri
 export default function DashboardPage() {
   const { data: session } = useSession();
   const firstName = extractFirstName(session?.user?.name, session?.user?.email);
+
+  // Clear user-scoped localStorage data when a different account is detected.
+  // Prevents one user from seeing another's builder state on a shared browser.
+  useEffect(() => {
+    const uid = session?.user?.uid;
+    if (!uid) return;
+    const stored = localStorage.getItem("evermade-uid");
+    if (stored && stored !== uid) {
+      USER_SCOPED_KEYS.forEach((k) => localStorage.removeItem(k));
+    }
+    localStorage.setItem("evermade-uid", uid);
+  }, [session?.user?.uid]);
 
   return (
     <>
