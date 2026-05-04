@@ -317,7 +317,15 @@ export default function ProjectsPanel() {
     router.push("/builder");
   }, [router]);
 
-  // ── Skeleton cards while loading ────────────────────────────────────────────
+  const handleUseTemplate = useCallback((templateId: string) => {
+    router.push(`/new-project?template=${templateId}`);
+  }, [router]);
+
+  const handleNewProject = useCallback(() => {
+    router.push("/new-project");
+  }, [router]);
+
+  // ── Skeleton while fetching ───────────────────────────────────────────────
   if (loading) {
     return (
       <section style={{ width: "100%", maxWidth: 1200, margin: "0 auto", padding: "0 48px 96px" }}>
@@ -333,14 +341,6 @@ export default function ProjectsPanel() {
       </section>
     );
   }
-
-  const handleUseTemplate = useCallback((templateId: string) => {
-    router.push(`/new-project?template=${templateId}`);
-  }, [router]);
-
-  const handleNewProject = useCallback(() => {
-    router.push("/new-project");
-  }, [router]);
 
   const displayedProjects =
     tab === "recent"

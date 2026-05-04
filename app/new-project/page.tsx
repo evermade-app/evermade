@@ -62,18 +62,15 @@ function NewProjectInner() {
     const trimmed = prompt.trim();
     const words = trimmed.split(/\s+/).slice(0, 3).join(" ");
     const name = words || "My App";
-    const id = `proj-${Date.now()}`;
     const gradient = GRADIENTS[Math.floor(Math.random() * GRADIENTS.length)];
-
     const project = makeBlankProject(name);
-    project.id = id;
     saveProject(project);
 
     // Persist to Supabase (fire-and-forget — don't block navigation on failure)
     fetch("/api/apps", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, name, gradient }),
+      body: JSON.stringify({ id: project.id, name, gradient }),
     }).catch(console.error);
 
     if (trimmed) {
