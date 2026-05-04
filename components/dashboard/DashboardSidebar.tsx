@@ -459,7 +459,7 @@ export default function DashboardSidebar() {
               <CrownIcon />
             </button>
 
-            <RailIcon icon={<CoinsIcon />} title="Buy credits" onClick={() => setShowBuyCredits(true)} />
+            <RailIcon icon={<DatabaseIcon />} title="Buy credits" onClick={() => setShowBuyCredits(true)} />
             <RailIcon icon={<GiftIcon />} title="Share Evermade" onClick={() => setShowShare(true)} />
 
             {/* Avatar */}
