@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
@@ -8,6 +8,24 @@ import PricingModal from "./PricingModal";
 import BuyCreditsModal from "./BuyCreditsModal";
 import ShareEvermadeModal from "./ShareEvermadeModal";
 import CreditsModal from "./CreditsModal";
+
+interface CreditInfo {
+  creditsRemaining: number;
+  monthlyCredits: number;
+  creditsUsed: number;
+  planName: string;
+  isFounder: boolean;
+  resetDate: string | null;
+}
+
+function timeUntilReset(): string {
+  const now = new Date();
+  const nextReset = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const diffH = Math.round((nextReset.getTime() - now.getTime()) / 36e5);
+  if (diffH < 24) return `${diffH} hour${diffH !== 1 ? "s" : ""}`;
+  const diffD = Math.ceil(diffH / 24);
+  return `${diffD} day${diffD !== 1 ? "s" : ""}`;
+}
 
 const SIDEBAR_WIDTH = 258;
 const RAIL_WIDTH = 52;
@@ -99,10 +117,11 @@ const CrownIcon = () => (
   </svg>
 );
 
-const CoinsIcon = () => (
+const DatabaseIcon = () => (
   <svg width="17" height="17" viewBox="0 0 15 15" fill="none">
-    <circle cx="6" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.4" />
-    <circle cx="9.5" cy="8" r="4" stroke="currentColor" strokeWidth="1.3" fill="rgba(11,11,14,0.97)" />
+    <ellipse cx="7.5" cy="3.5" rx="5" ry="1.8" stroke="currentColor" strokeWidth="1.35" />
+    <path d="M2.5 3.5V7c0 1 2.24 1.8 5 1.8S12.5 8 12.5 7V3.5" stroke="currentColor" strokeWidth="1.35" />
+    <path d="M2.5 7v3.5c0 1 2.24 1.8 5 1.8s5-.8 5-1.8V7" stroke="currentColor" strokeWidth="1.35" />
   </svg>
 );
 
@@ -240,6 +259,7 @@ function SidebarNavItem({
   icon,
   label,
   badge,
+  badgeGreen,
   indent,
   muted,
   onClick,
@@ -247,6 +267,7 @@ function SidebarNavItem({
   icon: React.ReactNode;
   label: string;
   badge?: string;
+  badgeGreen?: string;
   indent?: boolean;
   muted?: boolean;
   onClick?: () => void;
@@ -286,6 +307,11 @@ function SidebarNavItem({
           {badge}
         </span>
       )}
+      {badgeGreen && (
+        <span style={{ fontSize: 12.5, fontWeight: 700, color: "#3ecf6a", flexShrink: 0, letterSpacing: -0.1 }}>
+          {badgeGreen}
+        </span>
+      )}
     </button>
   );
 }
@@ -314,12 +340,23 @@ export default function DashboardSidebar() {
   const [showBuyCredits, setShowBuyCredits] = useState(false);
   const [showShare, setShowShare] = useState(false);
   const [showCredits, setShowCredits] = useState(false);
+  const [credits, setCredits] = useState<CreditInfo | null>(null);
   const { data: session } = useSession();
   const router = useRouter();
 
-  const displayName = session?.user?.name ?? session?.user?.email?.split("@")[0] ?? "User";
-  const displayEmail = session?.user?.email ?? "";
-  const avatarLetter = displayName.charAt(0).toUpperCase();
+  const fullName = session?.user?.name ?? "";
+  const firstName = fullName.split(" ")[0] || session?.user?.email?.split("@")[0] || "User";
+  const avatarLetter = firstName.charAt(0).toUpperCase();
+  const avatarImage = session?.user?.image ?? null;
+
+  useEffect(() => {
+    fetch("/api/credits")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data?.credits) setCredits(data.credits as CreditInfo);
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <>
@@ -426,18 +463,28 @@ export default function DashboardSidebar() {
             <RailIcon icon={<GiftIcon />} title="Share Evermade" onClick={() => setShowShare(true)} />
 
             {/* Avatar */}
-            <div
-              title={displayName}
-              style={{
-                width: 32, height: 32, borderRadius: "50%",
-                background: "linear-gradient(135deg, #7c5cfc 0%, #4878ff 100%)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: 13, fontWeight: 700, color: "white",
-                cursor: "pointer", marginTop: 2,
-              }}
-            >
-              {avatarLetter}
-            </div>
+            {avatarImage ? (
+              <img
+                src={avatarImage}
+                alt={firstName}
+                referrerPolicy="no-referrer"
+                title={firstName}
+                style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", cursor: "pointer", marginTop: 2 }}
+              />
+            ) : (
+              <div
+                title={firstName}
+                style={{
+                  width: 32, height: 32, borderRadius: "50%",
+                  background: "linear-gradient(135deg, #7c5cfc 0%, #4878ff 100%)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 13, fontWeight: 700, color: "white",
+                  cursor: "pointer", marginTop: 2,
+                }}
+              >
+                {avatarLetter}
+              </div>
+            )}
 
             {/* Notification dot */}
             <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center", marginTop: 2 }}>
@@ -558,69 +605,109 @@ export default function DashboardSidebar() {
         </div>
 
         {/* Bottom — Credits + Upgrade */}
-        <div style={{ borderTop: "1px solid rgba(255,255,255,0.05)", padding: "10px 14px", flexShrink: 0 }}>
+        <div style={{ borderTop: "1px solid rgba(255,255,255,0.05)", padding: "12px 14px 6px", flexShrink: 0 }}>
+          {/* Credits row */}
           <button
             onClick={() => setShowCredits(true)}
-            style={{
-              width: "100%", marginBottom: 10, background: "none", border: "none",
-              cursor: "pointer", padding: 0, textAlign: "left",
-            }}
+            style={{ width: "100%", marginBottom: 12, background: "none", border: "none", cursor: "pointer", padding: 0, textAlign: "left" }}
           >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 5 }}>
-              <span style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", fontWeight: 500, fontFamily: "inherit" }}>Credits</span>
-              <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.85)", fontFamily: "inherit" }}>View usage →</span>
+            {/* Label + remaining */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 7 }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.75)", fontFamily: "inherit", letterSpacing: -0.1 }}>
+                Credits
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.92)", fontFamily: "inherit", letterSpacing: -0.2 }}>
+                {credits
+                  ? credits.isFounder ? "∞" : `${credits.creditsRemaining} left`
+                  : "—"}
+              </span>
             </div>
-            <div style={{ height: 3, borderRadius: 2, background: "rgba(255,255,255,0.08)" }}>
-              <div style={{ width: "40%", height: "100%", borderRadius: 2, background: "linear-gradient(90deg, #7c5cfc 0%, #4878ff 100%)" }} />
+            {/* Progress bar */}
+            <div style={{ height: 5, borderRadius: 3, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+              <div style={{
+                height: "100%",
+                borderRadius: 3,
+                background: "linear-gradient(90deg, #7c5cfc 0%, #5b8dff 100%)",
+                width: credits
+                  ? credits.isFounder
+                    ? "100%"
+                    : `${Math.max(4, Math.round((credits.creditsUsed / credits.monthlyCredits) * 100))}%`
+                  : "0%",
+                transition: "width 0.4s ease",
+              }} />
             </div>
-            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.22)", marginTop: 4, fontFamily: "inherit" }}>Click to see credits & usage</div>
+            {/* Subtitle */}
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 5, fontFamily: "inherit", letterSpacing: -0.1 }}>
+              {credits
+                ? credits.isFounder
+                  ? "Unlimited · founder account"
+                  : `${credits.creditsUsed}/${credits.monthlyCredits} monthly · resets in ${timeUntilReset()}`
+                : "Loading..."}
+            </div>
           </button>
 
+          {/* Upgrade to Pro */}
           <button
             onClick={() => setShowPricing(true)}
             style={{
               width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-              gap: 8, padding: "9px 12px", borderRadius: 10,
-              background: "linear-gradient(135deg, rgba(124,92,252,0.9) 0%, rgba(72,120,255,0.85) 100%)",
-              border: "none", cursor: "pointer", marginBottom: 4,
-              boxShadow: "0 4px 16px rgba(124,92,252,0.3)",
+              gap: 8, padding: "11px 14px", borderRadius: 12,
+              background: "linear-gradient(135deg, #4f6ef7 0%, #6c5ce7 100%)",
+              border: "none", cursor: "pointer", marginBottom: 2,
+              boxShadow: "0 4px 20px rgba(79,110,247,0.38)",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-              <CrownIcon />
-              <span style={{ fontSize: 12.5, fontWeight: 700, color: "white", letterSpacing: -0.1 }}>Upgrade to Pro</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+              <span style={{ color: "white", display: "flex", alignItems: "center" }}><CrownIcon /></span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: "white", letterSpacing: -0.2 }}>Upgrade to Pro</span>
             </div>
-            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.7)" }}>↗</span>
+            <div style={{
+              width: 22, height: 22, borderRadius: "50%",
+              background: "rgba(255,255,255,0.18)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 12, color: "white", fontWeight: 600, flexShrink: 0,
+            }}>↗</div>
           </button>
 
-          <SidebarNavItem icon={<CoinsIcon />} label="Buy credits" onClick={() => setShowBuyCredits(true)} />
-          <SidebarNavItem icon={<GiftIcon />} label="Share Evermade" badge="+100" onClick={() => setShowShare(true)} />
+          <SidebarNavItem icon={<DatabaseIcon />} label="Buy credits" onClick={() => setShowBuyCredits(true)} />
+          <SidebarNavItem icon={<GiftIcon />} label="Share Evermade" badgeGreen="+100" onClick={() => setShowShare(true)} />
         </div>
 
         {/* User row */}
         <div style={{
           borderTop: "1px solid rgba(255,255,255,0.05)", padding: "10px 14px",
-          display: "flex", alignItems: "center", gap: 9, flexShrink: 0, cursor: "pointer",
+          display: "flex", alignItems: "center", gap: 9, flexShrink: 0,
         }}>
-          <div style={{
-            width: 30, height: 30, borderRadius: "50%",
-            background: "linear-gradient(135deg, #7c5cfc 0%, #4878ff 100%)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 13, fontWeight: 700, color: "white",
-            boxShadow: "0 2px 8px rgba(124,92,252,0.35)", flexShrink: 0,
-          }}>{avatarLetter}</div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.88)", letterSpacing: -0.1, lineHeight: 1.3 }}>{displayName}</div>
-            <div style={{ fontSize: 10.5, color: "rgba(255,255,255,0.3)" }}>{displayEmail}</div>
-          </div>
-          <div style={{ position: "relative" }}>
-            <button style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.28)", display: "flex", padding: 4 }}>
+          {/* Avatar — real Google photo or initial fallback */}
+          {avatarImage ? (
+            <img
+              src={avatarImage}
+              alt={firstName}
+              referrerPolicy="no-referrer"
+              style={{ width: 30, height: 30, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }}
+            />
+          ) : (
+            <div style={{
+              width: 30, height: 30, borderRadius: "50%",
+              background: "linear-gradient(135deg, #7c5cfc 0%, #4878ff 100%)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 13, fontWeight: 700, color: "white", flexShrink: 0,
+            }}>{avatarLetter}</div>
+          )}
+          {/* First name only */}
+          <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.88)", letterSpacing: -0.1, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {firstName}
+          </span>
+          {/* Message icon with red dot */}
+          <div style={{ position: "relative", flexShrink: 0 }}>
+            <button style={{ background: "none", border: "none", cursor: "pointer", color: "rgba(255,255,255,0.35)", display: "flex", padding: 4, borderRadius: 6 }}>
               <MailIcon />
             </button>
             <span style={{
-              position: "absolute", top: 2, right: 2,
+              position: "absolute", top: 3, right: 3,
               width: 7, height: 7, borderRadius: "50%",
               background: "#ff3b30", border: "1.5px solid rgba(10,10,13,0.97)",
+              pointerEvents: "none",
             }} />
           </div>
         </div>
