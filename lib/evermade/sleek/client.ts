@@ -144,13 +144,32 @@ Design requirements:
 - Consistent design system across all 9 screens`;
 }
 
-export async function generateWithSleek(userPrompt: string): Promise<SleekProject> {
+function buildSleekPromptFree(userPrompt: string): string {
+  return `${userPrompt}
+
+Design a FREE PREVIEW mobile app with EXACTLY these 3 screens in this precise order. Name each screen EXACTLY as written below:
+
+Screen 1: "Onboarding Welcome" — hero screen with the app's value proposition, full-bleed design, NO bottom tab bar
+Screen 2: "Home Dashboard" — main screen with key metrics and quick actions, WITH bottom tab bar
+Screen 3: "Core Feature" — the primary feature of this app, richly designed, WITH bottom tab bar
+
+Design requirements:
+- Dark premium aesthetic with rich, saturated colors matching the app domain
+- Beautiful, production-ready, world-class design
+- Consistent design system across all 3 screens`;
+}
+
+export async function generateWithSleek(
+  userPrompt: string,
+  maxScreens = 9,
+): Promise<SleekProject> {
   const appName = userPrompt.slice(0, 60);
+  const promptFn = maxScreens <= 3 ? buildSleekPromptFree : buildSleekPrompt;
 
   const projectId = await createProject(appName);
-  const runId = await sendMessage(projectId, buildSleekPrompt(userPrompt));
+  const runId = await sendMessage(projectId, promptFn(userPrompt));
   await pollRun(projectId, runId);
   const screens = await listComponents(projectId);
 
-  return { id: projectId, screens };
+  return { id: projectId, screens: screens.slice(0, maxScreens) };
 }

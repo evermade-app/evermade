@@ -7,6 +7,7 @@ import BuilderTopBar from "./BuilderTopBar";
 import BuilderSidebar from "./BuilderSidebar";
 import BuilderPreview from "./BuilderPreview";
 import QRPanel from "./QRPanel";
+import PricingModal from "@/components/dashboard/PricingModal";
 import type { SleekPreviewApp } from "@/lib/editor/EditorContext";
 
 export type Message = {
@@ -38,6 +39,7 @@ function BuilderLayoutInner() {
   const [prompt, setPrompt] = useState("");
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>("normal");
   const [appHistory, setAppHistory] = useState<AppSnapshot[]>([]);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const handleSendRef = useRef<((content?: string) => Promise<void>) | null>(null);
   const autoFiredRef = useRef(false);
@@ -175,7 +177,8 @@ function BuilderLayoutInner() {
           return;
         }
         if (res.status === 403) {
-          resolveThinking(thinkingId, err.message ?? "Screen limit reached. Upgrade to continue.");
+          resolveThinking(thinkingId, "Generation blocked — see the upgrade modal.");
+          setShowUpgradeModal(true);
           return;
         }
         if (res.status === 503) {
@@ -228,6 +231,7 @@ function BuilderLayoutInner() {
       <div style={{ position: "absolute", bottom: "-10%", right: "0%", width: 900, height: 900, borderRadius: "50%", background: "radial-gradient(circle,rgba(30,100,255,0.1) 0%,transparent 65%)", pointerEvents: "none", zIndex: 0, animation: "evermade-blob-b 25s ease-in-out infinite" }} />
 
       <BuilderTopBar />
+      {showUpgradeModal && <PricingModal onClose={() => setShowUpgradeModal(false)} />}
 
       <div style={{ position: "relative", zIndex: 1, display: "flex", flex: 1, overflow: "hidden" }}>
         <BuilderSidebar

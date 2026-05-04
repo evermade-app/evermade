@@ -28,36 +28,41 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "User ID missing from session" }, { status: 401 });
     }
 
-    // getUserCredits handles monthly reset automatically and applies founder rule
+    // getUserCredits reads DB plan — founder email override only fires when DB plan is null
     const profile = await getUserCredits(userId, session.user.email ?? undefined);
     const { plan: userPlan, creditsRemaining, creditsUsed, creditsAddons, isFounder } = profile;
-    const planConfig = PLANS[userPlan === "owner" ? "evermax" : userPlan];
 
-    // ── Free plan: 1 lifetime generation of 3 screens ─────────────────────────
+    // ── Free plan: 1 generation per month, max 3 screens, watermarked ─────────
     if (userPlan === "free") {
       if (!canGenerate("free", creditsUsed, 3)) {
         return NextResponse.json(
           {
             error: "Free preview used",
             message:
-              "You've used your free preview. Upgrade to **EverPro ($25/mo)** to generate unlimited apps.",
+              "You've used your free generation this month. Upgrade to **EverPro ($25/mo)** to generate unlimited apps.",
             upgradeUrl: "/pricing",
+            showUpgrade: true,
           },
           { status: 403 },
         );
       }
 
-      const sleekProject = await generateWithSleek(prompt);
-      const screens = sleekProject.screens.slice(0, PLANS.free.maxScreensPerApp);
+      const sleekProject = await generateWithSleek(prompt, PLANS.free.maxScreensPerApp);
 
       const watermark = `<div style="position:fixed;bottom:12px;right:12px;z-index:99999;background:rgba(0,0,0,0.75);color:#fff;padding:5px 10px;border-radius:20px;font-size:10px;font-family:sans-serif;letter-spacing:0.3px;backdrop-filter:blur(8px)">Made with Evermade</div>`;
-      const watermarkedScreens = screens.map((s) => ({
+      const watermarkedScreens = sleekProject.screens.map((s) => ({
         ...s,
         html: s.html.replace("</body>", `${watermark}</body>`),
       }));
 
       const appName = (body?.appName?.trim() || prompt).slice(0, 60);
-      await deductCredits(userId, PLANS.free.monthlyCredits, "generate", `Generated: ${appName} (${screens.length} screens)`);
+      // Deduct all 5 monthly credits at once — blocks a second free generation this month
+      await deductCredits(
+        userId,
+        PLANS.free.monthlyCredits,
+        "generate",
+        `Generated: ${appName} (${watermarkedScreens.length} screens) [Free]`,
+      );
 
       return NextResponse.json({
         app: {
@@ -69,11 +74,10 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // ── Owner / founder: skip credit check, always allow ──────────────────────
-    if (isFounder || userPlan === "owner") {
+    // ── Owner (founder or explicit DB plan = owner): unlimited ────────────────
+    if (userPlan === "owner") {
       const sleekProject = await generateWithSleek(prompt);
       const appName = (body?.appName?.trim() || prompt).slice(0, 60);
-      // deductCredits logs amount=0 for owner/founder — no balance change, just history
       await deductCredits(
         userId,
         creditsForScreens(sleekProject.screens.length),
@@ -90,7 +94,8 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // ── Paid plans: credit check ───────────────────────────────────────────────
+    // ── Paid plans (everpro / evermax): credit check ───────────────────────────
+    const planConfig = PLANS[userPlan];
     const screenCount = planConfig.maxScreensPerApp;
     const neededCredits = creditsForScreens(screenCount);
 
@@ -100,12 +105,12 @@ export async function POST(req: NextRequest) {
           error: "Insufficient credits",
           message: `You have **${creditsRemaining} credits** left this month (need ${neededCredits} for ${screenCount} screens). Upgrade or purchase add-on credits.`,
           upgradeUrl: "/pricing",
+          showUpgrade: true,
         },
         { status: 403 },
       );
     }
 
-    // ── Generate ──────────────────────────────────────────────────────────────
     const sleekProject = await generateWithSleek(prompt);
     const cost = creditsForScreens(sleekProject.screens.length);
     const appName = (body?.appName?.trim() || prompt).slice(0, 60);

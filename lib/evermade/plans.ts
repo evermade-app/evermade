@@ -3,8 +3,8 @@ export const PLANS = {
   free: {
     name: "Free",
     price: 0,
-    monthlyCredits: 5,       // lifetime total, never resets
-    resetsMonthly: false,
+    monthlyCredits: 5,       // 5 credits/month = 1 generation, resets monthly
+    resetsMonthly: true,
     maxScreensPerApp: 3,     // preview only — 3 screens shown, watermarked
     watermark: true,
     canExport: false,

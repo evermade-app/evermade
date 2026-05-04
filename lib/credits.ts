@@ -1,4 +1,4 @@
-import { createServiceSupabaseClient } from "@/lib/supabase/server";
+import { createClient } from "@supabase/supabase-js";
 import { normalizePlan, PLANS, type PlanId } from "@/lib/evermade/plans";
 
 export const FOUNDER_EMAIL = "yonathanbenzaki@gmail.com";
@@ -23,10 +23,29 @@ export interface CreditTransaction {
   created_at: string;
 }
 
+// ── Supabase admin client — created directly, never via helper ────────────────
+// Uses SERVICE_ROLE key explicitly. This key bypasses RLS on all tables.
+
+function adminClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url) throw new Error("[credits] NEXT_PUBLIC_SUPABASE_URL is not set");
+  if (!key) throw new Error("[credits] SUPABASE_SERVICE_ROLE_KEY is not set");
+
+  console.log("[credits] using service key prefix:", key.slice(0, 16));
+
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
 // ── Founder & plan resolution ─────────────────────────────────────────────────
 
 function resolveEffectivePlan(rawPlan: string | null, email: string): PlanId {
-  if (email === FOUNDER_EMAIL) return "owner";
+  // Email override is a fallback only — if the DB has an explicit plan, trust it.
+  // This lets the founder test restricted plans by manually setting them in the DB.
+  if (!rawPlan && email === FOUNDER_EMAIL) return "owner";
   return normalizePlan(rawPlan);
 }
 
@@ -36,13 +55,15 @@ export async function getUserCredits(
   userId: string,
   userEmail?: string,
 ): Promise<CreditProfile> {
-  const supabase = createServiceSupabaseClient();
+  const db = adminClient();
 
-  const { data } = await supabase
+  const { data, error } = await db
     .from("profiles")
     .select("plan, credits_used, credits_reset_date, credits_addons, email")
     .eq("id", userId)
     .single();
+
+  if (error) console.error("[credits:getUserCredits] error:", error.message);
 
   const email = (userEmail ?? data?.email ?? "").toLowerCase();
   const isFounder = email === FOUNDER_EMAIL;
@@ -51,16 +72,16 @@ export async function getUserCredits(
   let creditsUsed = data?.credits_used ?? 0;
   const creditsAddons = data?.credits_addons ?? 0;
 
-  // Monthly reset check
+  // Monthly reset
   if (PLANS[plan].resetsMonthly && data?.credits_reset_date) {
     const resetDate = new Date(data.credits_reset_date);
     const now = new Date();
-    const needsReset =
+    if (
       now.getMonth() !== resetDate.getMonth() ||
-      now.getFullYear() !== resetDate.getFullYear();
-    if (needsReset) {
+      now.getFullYear() !== resetDate.getFullYear()
+    ) {
       creditsUsed = 0;
-      await supabase
+      await db
         .from("profiles")
         .update({ credits_used: 0, credits_reset_date: now.toISOString() })
         .eq("id", userId);
@@ -92,68 +113,89 @@ export async function deductCredits(
   action: string,
   description: string,
 ): Promise<{ success: boolean; remaining: number }> {
-  console.log("[credits:deduct] START", { userId, amount, action });
+  console.log("[credits:deduct] ── START ──", { userId, amount, action, description });
 
-  const supabase = createServiceSupabaseClient();
+  const db = adminClient();
 
-  const { data: profile, error: profileErr } = await supabase
+  // 1. Fetch current profile
+  const { data: profile, error: profileErr } = await db
     .from("profiles")
     .select("plan, credits_used, credits_addons, email")
     .eq("id", userId)
     .single();
 
-  if (profileErr) console.error("[credits:deduct] profile fetch error:", profileErr.message);
-  console.log("[credits:deduct] profile:", { plan: profile?.plan, credits_used: profile?.credits_used, email: profile?.email });
+  if (profileErr) {
+    console.error("[credits:deduct] profile fetch FAILED:", profileErr.message);
+  }
+  console.log("[credits:deduct] profile row:", JSON.stringify(profile));
 
   const email = (profile?.email ?? "").toLowerCase();
-  if (email === FOUNDER_EMAIL) {
-    console.log("[credits:deduct] founder account — skipping deduction");
-    return { success: true, remaining: 999_999_999 };
-  }
-
+  const isFounder = email === FOUNDER_EMAIL;
   const plan = normalizePlan(profile?.plan);
-  if (plan === "owner") {
-    console.log("[credits:deduct] owner plan — skipping deduction");
-    return { success: true, remaining: 999_999_999 };
-  }
+  const isOwner = plan === "owner" || isFounder;
 
-  const currentUsed = profile?.credits_used ?? 0;
+  const currentUsed  = profile?.credits_used  ?? 0;
   const creditsAddons = profile?.credits_addons ?? 0;
-  const monthlyCredits = PLANS[plan].monthlyCredits;
-  const available = Math.max(0, monthlyCredits + creditsAddons - currentUsed);
+  const monthlyCredits = isOwner ? 999_999_999 : PLANS[plan].monthlyCredits;
+  const newUsed      = isOwner ? currentUsed : currentUsed + amount;
+  const newRemaining = isOwner
+    ? 999_999_999
+    : Math.max(0, monthlyCredits + creditsAddons - newUsed);
 
-  if (available < amount) {
-    console.log("[credits:deduct] insufficient credits", { available, needed: amount });
-    return { success: false, remaining: available };
+  // 2. Check available credits (skip for owner/founder)
+  if (!isOwner) {
+    const available = Math.max(0, monthlyCredits + creditsAddons - currentUsed);
+    if (available < amount) {
+      console.log("[credits:deduct] insufficient credits", { available, needed: amount });
+      return { success: false, remaining: available };
+    }
+
+    // 3. Update credits_used in profiles
+    const { error: updateErr } = await db
+      .from("profiles")
+      .update({ credits_used: newUsed })
+      .eq("id", userId);
+
+    if (updateErr) {
+      console.error("[credits:deduct] profile update FAILED:", updateErr.message);
+    } else {
+      console.log("[credits:deduct] profile credits_used updated →", newUsed);
+    }
   }
 
-  const newUsed = currentUsed + amount;
-  const newRemaining = Math.max(0, monthlyCredits + creditsAddons - newUsed);
+  // 4. Insert transaction row — log everything regardless of plan
+  console.log("[credits:deduct] inserting into credit_transactions:", {
+    user_id: userId,
+    amount: isOwner ? 0 : -amount,
+    balance_after: newRemaining,
+    action,
+    description,
+  });
 
-  const { error: updateErr } = await supabase
-    .from("profiles")
-    .update({ credits_used: newUsed })
-    .eq("id", userId);
-  if (updateErr) console.error("[credits:deduct] profile update error:", updateErr.message);
-  else console.log("[credits:deduct] profile updated, credits_used →", newUsed);
-
-  // Insert transaction row — Supabase never throws, always check .error
-  const { error: txError } = await supabase
+  const { data: txData, error: txError } = await db
     .from("credit_transactions")
     .insert({
       user_id: userId,
-      amount: -amount,
+      amount: isOwner ? 0 : -amount,
       balance_after: newRemaining,
       action,
       description,
-    });
+    })
+    .select();
 
   if (txError) {
-    console.error("[credits:deduct] credit_transactions insert FAILED:", txError.code, txError.message, txError.details);
+    console.error(
+      "[credits:deduct] credit_transactions INSERT FAILED",
+      "\n  code:", txError.code,
+      "\n  message:", txError.message,
+      "\n  details:", txError.details,
+      "\n  hint:", txError.hint,
+    );
   } else {
-    console.log("[credits:deduct] credit_transactions row inserted ✓", { action, amount: -amount, balance_after: newRemaining });
+    console.log("[credits:deduct] credit_transactions INSERT OK:", JSON.stringify(txData));
   }
 
+  console.log("[credits:deduct] ── END ──", { success: true, remaining: newRemaining });
   return { success: true, remaining: newRemaining };
 }
 
@@ -164,28 +206,29 @@ export async function addCredits(
   amount: number,
   source: string,
 ): Promise<void> {
-  const supabase = createServiceSupabaseClient();
+  const db = adminClient();
 
-  const { data: profile } = await supabase
+  const { data: profile } = await db
     .from("profiles")
     .select("credits_addons, credits_used, plan")
     .eq("id", userId)
     .single();
 
   const newAddons = (profile?.credits_addons ?? 0) + amount;
-  await supabase.from("profiles").update({ credits_addons: newAddons }).eq("id", userId);
+  await db.from("profiles").update({ credits_addons: newAddons }).eq("id", userId);
 
   const plan = normalizePlan(profile?.plan);
   const used = profile?.credits_used ?? 0;
   const remaining = Math.max(0, PLANS[plan].monthlyCredits + newAddons - used);
-  const { error: txError } = await supabase.from("credit_transactions").insert({
+
+  const { error: txError } = await db.from("credit_transactions").insert({
     user_id: userId,
     amount,
     balance_after: remaining,
     action: "purchase",
     description: source,
   });
-  if (txError) console.error("[credits] purchase log failed:", txError.message);
+  if (txError) console.error("[credits:addCredits] INSERT FAILED:", txError.message);
 }
 
 // ── Core: checkCreditsBeforeAction ────────────────────────────────────────────
@@ -206,8 +249,8 @@ export async function checkCreditsBeforeAction(
 // ── Core: resetMonthlyCredits ─────────────────────────────────────────────────
 
 export async function resetMonthlyCredits(userId: string): Promise<void> {
-  const supabase = createServiceSupabaseClient();
-  await supabase
+  const db = adminClient();
+  await db
     .from("profiles")
     .update({ credits_used: 0, credits_reset_date: new Date().toISOString() })
     .eq("id", userId);
@@ -216,13 +259,13 @@ export async function resetMonthlyCredits(userId: string): Promise<void> {
 // ── Credit history ────────────────────────────────────────────────────────────
 
 export async function getCreditHistory(userId: string): Promise<CreditTransaction[]> {
-  const supabase = createServiceSupabaseClient();
-  const { data, error } = await supabase
+  const db = adminClient();
+  const { data, error } = await db
     .from("credit_transactions")
     .select("*")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(25);
-  if (error) console.error("[credits] history fetch failed:", error.message);
+  if (error) console.error("[credits:getCreditHistory] FAILED:", error.message, error.code);
   return (data ?? []) as CreditTransaction[];
 }
