@@ -368,7 +368,7 @@ function SidebarNavItem({
       {badge && (
         <span style={{
           fontSize: 10, fontWeight: 700, padding: "1.5px 6px", borderRadius: 99,
-          background: "rgba(124,92,252,0.25)", color: "rgba(124,92,252,0.95)",
+          background: "rgba(204,255,0,0.12)", color: "#CCFF00",
           letterSpacing: 0.2, flexShrink: 0,
         }}>
           {badge}
@@ -517,10 +517,10 @@ export default function DashboardSidebar() {
           <div style={{ paddingTop: 10, paddingBottom: 8, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
             <div style={{
               width: 32, height: 32, borderRadius: 9,
-              background: "linear-gradient(135deg, #7c5cfc 0%, #4878ff 100%)",
+              background: "#CCFF00",
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 15, fontWeight: 800, color: "white",
-              boxShadow: "0 2px 8px rgba(124,92,252,0.4)",
+              fontSize: 15, fontWeight: 800, color: "#000",
+              boxShadow: "0 2px 8px rgba(204,255,0,0.35)",
               cursor: "pointer",
             }}
               onClick={() => setOpen(true)}
@@ -568,12 +568,12 @@ export default function DashboardSidebar() {
               title="Upgrade to Pro"
               style={{
                 width: 36, height: 36, borderRadius: 999,
-                border: "2px solid rgba(124,92,252,0.6)",
+                border: "2px solid rgba(204,255,0,0.6)",
                 display: "flex", alignItems: "center", justifyContent: "center",
                 cursor: "pointer", marginBottom: 2,
               }}
             >
-              <span style={{ width: 10, height: 10, borderRadius: "50%", background: "rgba(124,92,252,0.5)" }} />
+              <span style={{ width: 10, height: 10, borderRadius: "50%", background: "rgba(204,255,0,0.5)" }} />
             </div>
 
             {/* Pro button */}
@@ -582,11 +582,11 @@ export default function DashboardSidebar() {
               onClick={() => setShowPricing(true)}
               style={{
                 width: 36, height: 36, borderRadius: 10,
-                background: "linear-gradient(135deg, #7c5cfc 0%, #4878ff 100%)",
+                background: "#CCFF00",
                 border: "none", cursor: "pointer",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                boxShadow: "0 4px 12px rgba(124,92,252,0.35)",
-                color: "white", marginBottom: 2,
+                boxShadow: "0 4px 12px rgba(204,255,0,0.3)",
+                color: "#000", marginBottom: 2,
               }}
             >
               <CrownIcon />
@@ -609,9 +609,9 @@ export default function DashboardSidebar() {
                 title={firstName}
                 style={{
                   width: 32, height: 32, borderRadius: "50%",
-                  background: "linear-gradient(135deg, #7c5cfc 0%, #4878ff 100%)",
+                  background: "#CCFF00",
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 13, fontWeight: 700, color: "white",
+                  fontSize: 13, fontWeight: 700, color: "#000",
                   cursor: "pointer", marginTop: 2,
                 }}
               >
@@ -665,10 +665,10 @@ export default function DashboardSidebar() {
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{
               width: 26, height: 26, borderRadius: 7,
-              background: "linear-gradient(135deg, #7c5cfc 0%, #4878ff 100%)",
+              background: "#CCFF00",
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 13, fontWeight: 800, color: "white", flexShrink: 0,
-              boxShadow: "0 2px 8px rgba(124,92,252,0.4)",
+              fontSize: 13, fontWeight: 800, color: "#000", flexShrink: 0,
+              boxShadow: "0 2px 8px rgba(204,255,0,0.35)",
             }}>e</div>
             <div>
               <div style={{ fontSize: 13, fontWeight: 650, color: "rgba(255,255,255,0.9)", letterSpacing: -0.2 }}>evermade</div>
@@ -760,7 +760,7 @@ export default function DashboardSidebar() {
               <div style={{
                 height: "100%",
                 borderRadius: 3,
-                background: "linear-gradient(90deg, #7c5cfc 0%, #5b8dff 100%)",
+                background: "#CCFF00",
                 width: credits
                   ? credits.isFounder
                     ? "100%"
@@ -785,20 +785,20 @@ export default function DashboardSidebar() {
             style={{
               width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
               gap: 8, padding: "11px 14px", borderRadius: 12,
-              background: "linear-gradient(135deg, #4f6ef7 0%, #6c5ce7 100%)",
+              background: "#CCFF00",
               border: "none", cursor: "pointer", marginBottom: 2,
-              boxShadow: "0 4px 20px rgba(79,110,247,0.38)",
+              boxShadow: "0 4px 20px rgba(204,255,0,0.3)",
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-              <span style={{ color: "white", display: "flex", alignItems: "center" }}><CrownIcon /></span>
-              <span style={{ fontSize: 14, fontWeight: 700, color: "white", letterSpacing: -0.2 }}>Upgrade to Pro</span>
+              <span style={{ color: "#000", display: "flex", alignItems: "center" }}><CrownIcon /></span>
+              <span style={{ fontSize: 14, fontWeight: 700, color: "#000", letterSpacing: -0.2 }}>Upgrade to Pro</span>
             </div>
             <div style={{
               width: 22, height: 22, borderRadius: "50%",
-              background: "rgba(255,255,255,0.18)",
+              background: "rgba(0,0,0,0.15)",
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 12, color: "white", fontWeight: 600, flexShrink: 0,
+              fontSize: 12, color: "#000", fontWeight: 600, flexShrink: 0,
             }}>↗</div>
           </button>
 
@@ -826,9 +826,9 @@ export default function DashboardSidebar() {
           ) : (
             <div style={{
               width: 30, height: 30, borderRadius: "50%",
-              background: "linear-gradient(135deg, #7c5cfc 0%, #4878ff 100%)",
+              background: "#CCFF00",
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 13, fontWeight: 700, color: "white", flexShrink: 0,
+              fontSize: 13, fontWeight: 700, color: "#000", flexShrink: 0,
             }}>{avatarLetter}</div>
           )}
           <span style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.88)", letterSpacing: -0.1, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -872,7 +872,7 @@ export default function DashboardSidebar() {
               <img src={avatarImage} alt={fullName} referrerPolicy="no-referrer"
                 style={{ width: 44, height: 44, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
             ) : (
-              <div style={{ width: 44, height: 44, borderRadius: "50%", background: "linear-gradient(135deg,#7c5cfc,#4878ff)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 700, color: "white", flexShrink: 0 }}>
+              <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#CCFF00", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 700, color: "#000", flexShrink: 0 }}>
                 {avatarLetter}
               </div>
             )}
