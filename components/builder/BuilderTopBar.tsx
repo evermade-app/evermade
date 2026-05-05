@@ -117,6 +117,7 @@ export default function BuilderTopBar() {
   const [showDashboard, setShowDashboard] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
   const [exporting, setExporting] = useState<"idle" | "generating" | "packaging">("idle");
   const [exportError, setExportError] = useState<{ message: string; upgradeUrl?: string } | null>(null);
   const router = useRouter();
@@ -180,6 +181,7 @@ export default function BuilderTopBar() {
   const handleShare = useCallback(async () => {
     if (sharing || !sleekApp) return;
     setSharing(true);
+    setShareError(null);
     try {
       const res = await fetch(`/api/preview/${sleekApp.id}`, {
         method: "POST",
@@ -187,10 +189,14 @@ export default function BuilderTopBar() {
         body: JSON.stringify(sleekApp),
       });
       if (res.ok) {
-        setShareUrl(`${APP_URL}/preview/${sleekApp.id}`);
+        const origin = typeof window !== "undefined" ? window.location.origin : APP_URL;
+        setShareUrl(`${origin}/preview/${sleekApp.id}`);
+      } else {
+        const err = await res.json().catch(() => ({})) as { error?: string };
+        setShareError(err.error ?? `Save failed (${res.status}) — make sure the previews table exists in Supabase.`);
       }
-    } catch {
-      // silently fail
+    } catch (e) {
+      setShareError(`Connection error — ${e instanceof Error ? e.message : "Could not reach server."}`);
     } finally {
       setSharing(false);
     }
@@ -430,6 +436,32 @@ export default function BuilderTopBar() {
 
     {shareUrl && (
       <ShareModal previewUrl={shareUrl!} onClose={() => setShareUrl(null)} />
+    )}
+
+    {shareError && (
+      <div style={{
+        position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)",
+        zIndex: 1000, display: "flex", alignItems: "center", gap: 12,
+        padding: "12px 18px", borderRadius: 14,
+        background: "rgba(20,10,10,0.97)", border: "1px solid rgba(239,68,68,0.3)",
+        boxShadow: "0 8px 40px rgba(0,0,0,0.7)",
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+        maxWidth: 460,
+      }}>
+        <span style={{ fontSize: 15 }}>⚠️</span>
+        <span style={{ fontSize: 13, color: "rgba(255,255,255,0.75)", flex: 1 }}>
+          {shareError}
+        </span>
+        <button
+          onClick={() => setShareError(null)}
+          style={{
+            width: 22, height: 22, borderRadius: "50%", border: "none",
+            background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.4)",
+            fontSize: 13, cursor: "pointer", display: "flex",
+            alignItems: "center", justifyContent: "center", flexShrink: 0,
+          }}
+        >×</button>
+      </div>
     )}
 
     {showDashboard && (
