@@ -30,6 +30,23 @@ function timeUntilReset(): string {
 const SIDEBAR_WIDTH = 258;
 const RAIL_WIDTH = 52;
 
+// ── Logo mark ─────────────────────────────────────────────────────────────────
+
+function LogoMark({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <path
+        d="M6.5 2C4.8 2 4 3 4 4.5V7.2C4 8.2 3.4 8.8 2.2 9.5v1C3.4 11.2 4 11.8 4 12.8V15.5C4 17 4.8 18 6.5 18"
+        stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+      />
+      <path
+        d="M13.5 2C15.2 2 16 3 16 4.5V7.2C16 8.2 16.6 8.8 17.8 9.5v1C16.6 11.2 16 11.8 16 12.8V15.5C16 17 15.2 18 13.5 18"
+        stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 // ── Icons ──────────────────────────────────────────────────────────────────────
 
 const HomeIcon = () => (
@@ -519,14 +536,13 @@ export default function DashboardSidebar() {
               width: 32, height: 32, borderRadius: 9,
               background: "#CCFF00",
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 15, fontWeight: 800, color: "#000",
               boxShadow: "0 2px 8px rgba(204,255,0,0.35)",
               cursor: "pointer",
             }}
               onClick={() => setOpen(true)}
               title="Open sidebar"
             >
-              e
+              <LogoMark size={20} />
             </div>
           </div>
 
@@ -667,9 +683,11 @@ export default function DashboardSidebar() {
               width: 26, height: 26, borderRadius: 7,
               background: "#CCFF00",
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 13, fontWeight: 800, color: "#000", flexShrink: 0,
+              flexShrink: 0,
               boxShadow: "0 2px 8px rgba(204,255,0,0.35)",
-            }}>e</div>
+            }}>
+              <LogoMark size={16} />
+            </div>
             <div>
               <div style={{ fontSize: 13, fontWeight: 650, color: "rgba(255,255,255,0.9)", letterSpacing: -0.2 }}>evermade</div>
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", marginTop: 0.5 }}>Workspace</div>
