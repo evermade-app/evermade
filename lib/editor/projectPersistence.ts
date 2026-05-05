@@ -1,20 +1,25 @@
 import type { Project } from "./project";
 
-const PROJECT_STORAGE_KEY = "evermade-project-v1";
+function projectKey(id: string): string {
+  return `evermade-project-${id}`;
+}
 
 export function saveProject(project: Project): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(project));
+    localStorage.setItem(projectKey(project.id), JSON.stringify(project));
   } catch {
     // quota exceeded or private browsing — silently skip
   }
 }
 
-export function loadProject(): Project | null {
+export function loadProject(id?: string): Project | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem(PROJECT_STORAGE_KEY);
+    // If no id provided, try to infer from evermade-active-project
+    const projectId = id ?? localStorage.getItem("evermade-active-project") ?? null;
+    if (!projectId) return null;
+    const raw = localStorage.getItem(projectKey(projectId));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Project;
     if (!parsed || typeof parsed !== "object" || !parsed.id || !Array.isArray(parsed.screens)) return null;
@@ -24,10 +29,10 @@ export function loadProject(): Project | null {
   }
 }
 
-export function clearProject(): void {
+export function clearProject(id: string): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.removeItem(PROJECT_STORAGE_KEY);
+    localStorage.removeItem(projectKey(id));
   } catch {
     // ignore
   }

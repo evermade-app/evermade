@@ -74,6 +74,7 @@ function NewProjectInner() {
     if (trimmed) {
       localStorage.setItem("evermade-pending-prompt", trimmed);
     }
+    localStorage.setItem("evermade-active-project", project.id);
 
     // Persist to Supabase — keepalive ensures the request survives navigation
     fetch("/api/apps", {

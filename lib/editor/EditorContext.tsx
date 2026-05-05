@@ -71,28 +71,31 @@ type EditorContextValue = {
 
 const EditorContext = createContext<EditorContextValue | null>(null);
 
-const SLEEK_STORAGE_KEY = "evermade-sleek-app-v1";
+function sleekKey(projectId: string): string {
+  return `evermade-sleek-${projectId}`;
+}
 
-function saveSleekApp(app: SleekPreviewApp | null): void {
+function saveSleekApp(projectId: string, app: SleekPreviewApp | null): void {
   if (typeof window === "undefined") return;
   try {
+    const key = sleekKey(projectId);
     if (app) {
-      localStorage.setItem(SLEEK_STORAGE_KEY, JSON.stringify(app));
+      localStorage.setItem(key, JSON.stringify(app));
     } else {
-      localStorage.removeItem(SLEEK_STORAGE_KEY);
+      localStorage.removeItem(key);
     }
   } catch {
     // quota exceeded or private browsing
   }
 }
 
-function loadSleekApp(): SleekPreviewApp | null {
+function loadSleekApp(projectId: string): SleekPreviewApp | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = localStorage.getItem(SLEEK_STORAGE_KEY);
+    const raw = localStorage.getItem(sleekKey(projectId));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as SleekPreviewApp;
-    if (!parsed || !parsed.id || !Array.isArray(parsed.screens)) return null;
+    if (!parsed?.id || !Array.isArray(parsed.screens)) return null;
     return parsed;
   } catch {
     return null;
@@ -118,10 +121,20 @@ export function EditorProvider({
   // Load persisted project and sleek app once on mount
   useEffect(() => {
     if (isPreview) return;
+    // loadProject reads evermade-active-project to know which project to load
     const savedProject = loadProject();
-    if (savedProject) setProjectState(savedProject);
-    const savedSleek = loadSleekApp();
-    if (savedSleek) setSleekAppState(savedSleek);
+    if (savedProject) {
+      setProjectState(savedProject);
+      const savedSleek = loadSleekApp(savedProject.id);
+      if (savedSleek) setSleekAppState(savedSleek);
+    } else {
+      // Fallback: try active project signal for sleekApp even if no project data
+      const activeProjectId = localStorage.getItem("evermade-active-project");
+      if (activeProjectId) {
+        const savedSleek = loadSleekApp(activeProjectId);
+        if (savedSleek) setSleekAppState(savedSleek);
+      }
+    }
     setHydrated(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -195,7 +208,12 @@ export function EditorProvider({
 
   const setSleekApp = useCallback((app: SleekPreviewApp | null) => {
     setSleekAppState(app);
-    if (!isPreview) saveSleekApp(app);
+    if (!isPreview) {
+      setProjectState((prev) => {
+        saveSleekApp(prev.id, app);
+        return prev;
+      });
+    }
   }, [isPreview]);
 
   const setVeSelection = useCallback((s: VESelection | null) => {
@@ -205,7 +223,12 @@ export function EditorProvider({
   const setSleekActiveIndex = useCallback((index: number) => {
     setSleekAppState((prev) => {
       const next = prev ? { ...prev, activeIndex: index } : prev;
-      if (!isPreview && next) saveSleekApp(next);
+      if (!isPreview && next) {
+        setProjectState((p) => {
+          saveSleekApp(p.id, next);
+          return p;
+        });
+      }
       return next;
     });
   }, [isPreview]);
