@@ -120,7 +120,7 @@ export default function BuilderTopBar() {
   const [exporting, setExporting] = useState<"idle" | "generating" | "packaging">("idle");
   const [exportError, setExportError] = useState<{ message: string; upgradeUrl?: string } | null>(null);
   const router = useRouter();
-  const { project } = useEditor();
+  const { project, sleekApp } = useEditor();
   const { data: session } = useSession();
 
   const userPlan = (session?.user as { plan?: string } | undefined)?.plan ?? "free";
@@ -178,23 +178,23 @@ export default function BuilderTopBar() {
   };
 
   const handleShare = useCallback(async () => {
-    if (sharing) return;
+    if (sharing || !sleekApp) return;
     setSharing(true);
     try {
-      const res = await fetch(`/api/preview/${project.id}`, {
+      const res = await fetch(`/api/preview/${sleekApp.id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(project),
+        body: JSON.stringify(sleekApp),
       });
       if (res.ok) {
-        setShareUrl(`${APP_URL}/preview/${project.id}`);
+        setShareUrl(`${APP_URL}/preview/${sleekApp.id}`);
       }
     } catch {
-      // silently fail — share button grays out
+      // silently fail
     } finally {
       setSharing(false);
     }
-  }, [project, sharing]);
+  }, [sleekApp, sharing]);
 
   return (
     <>
@@ -358,17 +358,18 @@ export default function BuilderTopBar() {
         {/* Share */}
         <button
           onClick={handleShare}
-          disabled={sharing}
+          disabled={sharing || !sleekApp}
+          title={!sleekApp ? "Generate an app first" : "Share a live preview link"}
           style={{
             display: "flex", alignItems: "center", gap: 5,
             padding: "6px 13px",
             borderRadius: 9,
             border: "1px solid rgba(255,255,255,0.12)",
-            background: sharing ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.06)",
-            color: sharing ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.7)",
+            background: (sharing || !sleekApp) ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.06)",
+            color: (sharing || !sleekApp) ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.7)",
             fontSize: 12.5,
             fontWeight: 600,
-            cursor: sharing ? "default" : "pointer",
+            cursor: (sharing || !sleekApp) ? "default" : "pointer",
             fontFamily: "inherit",
             letterSpacing: -0.1,
             transition: "all 0.14s ease",

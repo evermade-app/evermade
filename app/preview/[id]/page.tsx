@@ -1,15 +1,23 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import PreviewClient from "./PreviewClient";
-import type { Project } from "@/lib/editor/project";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 
-async function fetchProject(id: string): Promise<Project | null> {
+interface SleekPreviewApp {
+  id: string;
+  appName: string;
+  screens: Array<{ id: string; name: string; html: string }>;
+  activeIndex: number;
+}
+
+async function fetchSleekApp(id: string): Promise<SleekPreviewApp | null> {
   try {
     const res = await fetch(`${APP_URL}/api/preview/${id}`, { cache: "no-store" });
     if (!res.ok) return null;
-    return (await res.json()) as Project;
+    const data = await res.json() as SleekPreviewApp;
+    if (!data?.appName || !Array.isArray(data?.screens)) return null;
+    return data;
   } catch {
     return null;
   }
@@ -19,24 +27,24 @@ export async function generateMetadata(
   { params }: { params: Promise<{ id: string }> }
 ): Promise<Metadata> {
   const { id } = await params;
-  const project = await fetchProject(id);
-  if (!project) return { title: "App Preview — Evermade" };
+  const app = await fetchSleekApp(id);
+  if (!app) return { title: "App Preview — Evermade" };
 
-  const title = `${project.name} — Evermade Preview`;
-  const description = `See this ${project.name} app built with Evermade — the AI app builder.`;
+  const title = `${app.appName} — Live Preview on Evermade`;
+  const description = `${app.appName} — a ${app.screens.length}-screen app built with Evermade AI. See the live preview and build your own!`;
 
   return {
     title,
     description,
     openGraph: {
-      title: `${project.name} — Built with Evermade`,
+      title: `${app.appName} — Built with Evermade AI`,
       description,
       type: "website",
       siteName: "Evermade",
     },
     twitter: {
-      card: "summary",
-      title: `${project.name} — Built with Evermade`,
+      card: "summary_large_image",
+      title: `${app.appName} — Built with Evermade AI`,
       description,
     },
   };
@@ -46,8 +54,8 @@ export default async function PreviewPage(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const project = await fetchProject(id);
-  if (!project) notFound();
+  const app = await fetchSleekApp(id);
+  if (!app) notFound();
 
-  return <PreviewClient project={project} previewId={id} />;
+  return <PreviewClient sleekApp={app} previewId={id} />;
 }
