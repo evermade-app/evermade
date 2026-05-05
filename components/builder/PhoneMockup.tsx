@@ -22,46 +22,19 @@ export default function PhoneMockup({ children }: Props) {
         overflow: "hidden",
         zIndex: 0,
       }}>
-        {/* Rotating gradient — fills 200%×200% so it covers corners while spinning */}
+        {/* Solid #CCFF00 border fill */}
         <div style={{
           position: "absolute",
-          top: "50%", left: "50%",
-          width: "180%", height: "180%",
-          background: `conic-gradient(
-            from 0deg,
-            rgba(255, 115, 115, 0.95),
-            rgba(255, 183, 77,  0.92),
-            rgba(124, 92,  255, 0.98),
-            rgba(72,  120, 255, 0.98),
-            rgba(0,   220, 255, 0.88),
-            rgba(255, 115, 115, 0.95)
-          )`,
-          animationName: "phone-border-spin",
-          animationDuration: "4s",
-          animationTimingFunction: "linear",
-          animationIterationCount: "infinite",
-          transform: "translate(-50%, -50%) rotate(0deg)",
+          inset: 0,
+          background: "#CCFF00",
         }} />
-        {/* Soft glow duplicate (blurred) */}
+        {/* Soft glow */}
         <div style={{
           position: "absolute",
-          top: "50%", left: "50%",
-          width: "180%", height: "180%",
-          background: `conic-gradient(
-            from 0deg,
-            rgba(255, 115, 115, 0.5),
-            rgba(255, 183, 77,  0.45),
-            rgba(124, 92,  255, 0.55),
-            rgba(72,  120, 255, 0.55),
-            rgba(0,   220, 255, 0.4),
-            rgba(255, 115, 115, 0.5)
-          )`,
-          animationName: "phone-border-spin",
-          animationDuration: "4s",
-          animationTimingFunction: "linear",
-          animationIterationCount: "infinite",
-          transform: "translate(-50%, -50%) rotate(0deg)",
-          filter: "blur(8px)",
+          inset: -4,
+          background: "#CCFF00",
+          filter: "blur(10px)",
+          opacity: 0.35,
         }} />
       </div>
 
