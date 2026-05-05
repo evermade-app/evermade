@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { EditorProvider } from "@/lib/editor/EditorContext";
 import { useEditor } from "@/lib/editor/EditorContext";
+import { saveProjectMeta, getProjects } from "@/lib/projects-store";
 import BuilderTopBar from "./BuilderTopBar";
 import BuilderSidebar from "./BuilderSidebar";
 import BuilderPreview from "./BuilderPreview";
@@ -34,7 +35,7 @@ function now() {
 const CHAT_STORAGE_KEY = "evermade-chat-v1";
 
 function BuilderLayoutInner() {
-  const { hydrated, setSleekApp, sleekApp, veSelection, setVeSelection } = useEditor();
+  const { hydrated, setSleekApp, sleekApp, veSelection, setVeSelection, project } = useEditor();
   const [messages, setMessages] = useState<Message[]>([]);
   const [prompt, setPrompt] = useState("");
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>("normal");
@@ -194,6 +195,25 @@ function BuilderLayoutInner() {
       };
       setSleekApp(data.app);
       pushToHistory(data.app, `Generated — ${data.app.appName}`);
+
+      // Sync generated app to localStorage list + Supabase
+      const existing = getProjects().find((p) => p.id === project.id);
+      const now = new Date().toISOString();
+      saveProjectMeta({
+        id: project.id,
+        name: data.app.appName,
+        gradient: existing?.gradient ?? "linear-gradient(135deg,#1a1a2e 0%,#16213e 45%,#0f3460 100%)",
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+        published: existing?.published ?? false,
+      });
+      fetch(`/api/apps/${project.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: data.app.appName }),
+        keepalive: true,
+      }).catch(() => {});
+
       resolveThinking(
         thinkingId,
         `Done — **${data.app.screens.length} screens** generated ✨\n\nScroll the canvas to browse. Hit **Export** in the top bar to download the Expo project.`

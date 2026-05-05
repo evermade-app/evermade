@@ -3,6 +3,7 @@
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { saveProject } from "@/lib/editor/projectPersistence";
+import { saveProjectMeta } from "@/lib/projects-store";
 import type { Project } from "@/lib/editor/project";
 import DashboardHeroNav from "@/components/dashboard/DashboardHeroNav";
 
@@ -64,18 +65,23 @@ function NewProjectInner() {
     const name = words || "My App";
     const gradient = GRADIENTS[Math.floor(Math.random() * GRADIENTS.length)];
     const project = makeBlankProject(name);
-    saveProject(project);
+    const now = new Date().toISOString();
 
-    // Persist to Supabase (fire-and-forget — don't block navigation on failure)
-    fetch("/api/apps", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: project.id, name, gradient }),
-    }).catch(console.error);
+    // Always save to localStorage list first — this is the reliable fallback
+    saveProject(project);
+    saveProjectMeta({ id: project.id, name, gradient, createdAt: now, updatedAt: now, published: false });
 
     if (trimmed) {
       localStorage.setItem("evermade-pending-prompt", trimmed);
     }
+
+    // Persist to Supabase — keepalive ensures the request survives navigation
+    fetch("/api/apps", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: project.id, name, gradient }),
+      keepalive: true,
+    }).catch(() => {});
 
     router.push("/builder");
   }

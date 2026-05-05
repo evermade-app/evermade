@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { type ProjectMeta, timeAgo } from "@/lib/projects-store";
+import { type ProjectMeta, timeAgo, getProjects } from "@/lib/projects-store";
 
 // ─── Template catalogue ───────────────────────────────────────────────────────
 
@@ -298,11 +298,20 @@ export default function ProjectsPanel() {
 
   useEffect(() => {
     fetch("/api/apps")
-      .then((r) => r.json())
-      .then((data: ProjectMeta[]) => {
-        if (Array.isArray(data)) setProjects(data);
+      .then((r) => r.ok ? r.json() : [])
+      .then((data: unknown) => {
+        const apiProjects: ProjectMeta[] = Array.isArray(data) ? data as ProjectMeta[] : [];
+        // Merge with localStorage — API is authoritative, but local projects
+        // not yet synced (e.g. Supabase POST failed) still show up
+        const localProjects = getProjects();
+        const apiIds = new Set(apiProjects.map((p) => p.id));
+        const localOnly = localProjects.filter((p) => !apiIds.has(p.id));
+        setProjects([...apiProjects, ...localOnly]);
       })
-      .catch(console.error)
+      .catch(() => {
+        // Full fallback: API unreachable → show localStorage projects
+        setProjects(getProjects());
+      })
       .finally(() => setLoading(false));
   }, []);
 
