@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 import PreviewClient from "./PreviewClient";
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+import { createServiceSupabaseClient } from "@/lib/supabase/server";
 
 interface SleekPreviewApp {
   id: string;
@@ -12,15 +12,37 @@ interface SleekPreviewApp {
 }
 
 async function fetchSleekApp(id: string): Promise<SleekPreviewApp | null> {
+  // Query Supabase directly — avoids the localhost vs production URL problem
   try {
-    const res = await fetch(`${APP_URL}/api/preview/${id}`, { cache: "no-store" });
+    const supabase = createServiceSupabaseClient();
+    const { data, error } = await supabase
+      .from("previews")
+      .select("project")
+      .eq("id", id)
+      .single();
+    if (!error && data?.project) {
+      const app = data.project as SleekPreviewApp;
+      if (app?.appName && Array.isArray(app?.screens)) return app;
+    }
+  } catch (e) {
+    console.error("[Preview page] Supabase error:", e);
+  }
+
+  // Fallback: HTTP fetch using the actual request host (handles any deploy URL)
+  try {
+    const headersList = await headers();
+    const host = headersList.get("host") ?? "localhost:3000";
+    const proto = host.includes("localhost") ? "http" : "https";
+    const baseUrl = `${proto}://${host}`;
+    const res = await fetch(`${baseUrl}/api/preview/${id}`, { cache: "no-store" });
     if (!res.ok) return null;
     const data = await res.json() as SleekPreviewApp;
-    if (!data?.appName || !Array.isArray(data?.screens)) return null;
-    return data;
+    if (data?.appName && Array.isArray(data?.screens)) return data;
   } catch {
-    return null;
+    // ignore
   }
+
+  return null;
 }
 
 export async function generateMetadata(
