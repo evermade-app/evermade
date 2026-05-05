@@ -121,7 +121,7 @@ function StatCard({
 function CreditBar({ used, total, isFounder }: { used: number; total: number; isFounder: boolean }) {
   const pct = isFounder ? 2 : Math.min(100, total > 0 ? (used / total) * 100 : 0);
   const isLow = pct > 80 && !isFounder;
-  const color = isFounder ? "#a78bfa" : isLow ? "#f97316" : "#4ade80";
+  const color = isFounder ? "#CCFF00" : isLow ? "#f97316" : "#4ade80";
 
   return (
     <div>
@@ -140,7 +140,7 @@ function CreditBar({ used, total, isFounder }: { used: number; total: number; is
           height: "100%", borderRadius: 99,
           width: `${pct}%`,
           background: isFounder
-            ? "linear-gradient(90deg, #7c5cfc, #a78bfa)"
+            ? "#CCFF00"
             : isLow
             ? "linear-gradient(90deg, #f97316, #ef4444)"
             : "linear-gradient(90deg, #22c55e, #4ade80)",
@@ -164,10 +164,10 @@ function TxRow({ tx }: { tx: CreditTransaction }) {
     }}>
       <div style={{
         width: 32, height: 32, borderRadius: 9, flexShrink: 0,
-        background: isCredit ? "rgba(34,197,94,0.1)" : "rgba(124,92,252,0.1)",
-        border: `1px solid ${isCredit ? "rgba(34,197,94,0.2)" : "rgba(124,92,252,0.2)"}`,
+        background: isCredit ? "rgba(34,197,94,0.1)" : "rgba(204,255,0,0.08)",
+        border: `1px solid ${isCredit ? "rgba(34,197,94,0.2)" : "rgba(204,255,0,0.18)"}`,
         display: "flex", alignItems: "center", justifyContent: "center",
-        color: isCredit ? "#4ade80" : "rgba(160,140,255,0.8)",
+        color: isCredit ? "#4ade80" : "rgba(204,255,0,0.85)",
       }}>
         {isCredit ? <ShoppingIcon /> : actionIcon(tx.action)}
       </div>
@@ -197,17 +197,19 @@ function PlanBadge({ profile }: { profile: CreditProfile }) {
   const isPro  = plan === "everpro";
 
   const bg = isFounder
-    ? "linear-gradient(135deg, #7c5cfc, #4878ff)"
+    ? "#CCFF00"
     : isMax
     ? "linear-gradient(135deg, #d97706, #fbbf24)"
     : isPro
-    ? "linear-gradient(135deg, #7c5cfc55, #4878ff55)"
+    ? "rgba(204,255,0,0.12)"
     : "rgba(255,255,255,0.08)";
 
-  const border = isFounder || isMax
+  const border = isFounder
+    ? "none"
+    : isMax
     ? "none"
     : isPro
-    ? "1px solid rgba(124,92,252,0.4)"
+    ? "1px solid rgba(204,255,0,0.3)"
     : "1px solid rgba(255,255,255,0.1)";
 
   return (
@@ -235,8 +237,8 @@ function PlanBadge({ profile }: { profile: CreditProfile }) {
           {isFounder && (
             <span style={{
               fontSize: 9, fontWeight: 800, letterSpacing: 0.8, textTransform: "uppercase",
-              background: "linear-gradient(135deg, #7c5cfc, #4878ff)",
-              color: "white", padding: "2px 7px", borderRadius: 99,
+              background: "#CCFF00",
+              color: "#000", padding: "2px 7px", borderRadius: 99,
             }}>Founder · Admin</span>
           )}
           {isMax && !isFounder && (
@@ -258,10 +260,10 @@ function PlanBadge({ profile }: { profile: CreditProfile }) {
       {plan === "free" && (
         <button style={{
           padding: "7px 14px", borderRadius: 9, border: "none",
-          background: "linear-gradient(135deg, #7c5cfc, #4878ff)",
-          color: "white", fontSize: 12, fontWeight: 700, cursor: "pointer",
+          background: "#CCFF00",
+          color: "#000", fontSize: 12, fontWeight: 700, cursor: "pointer",
           fontFamily: "inherit", letterSpacing: -0.1, flexShrink: 0,
-          boxShadow: "0 4px 14px rgba(124,92,252,0.4)",
+          boxShadow: "0 4px 14px rgba(204,255,0,0.3)",
         }}>Upgrade</button>
       )}
     </div>
@@ -335,7 +337,7 @@ export default function CreditsModal({
           background: "rgba(8,8,18,0.99)",
           border: "1px solid rgba(255,255,255,0.08)",
           borderRadius: 22,
-          boxShadow: "0 40px 120px rgba(0,0,0,0.85), 0 0 0 1px rgba(79,142,255,0.06)",
+          boxShadow: "0 40px 120px rgba(0,0,0,0.85)",
           overflow: "hidden",
           animation: "creditsModalIn 0.28s cubic-bezier(0.22,1,0.36,1) both",
           display: "flex", flexDirection: "column",
@@ -352,10 +354,10 @@ export default function CreditsModal({
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{
               width: 32, height: 32, borderRadius: 9,
-              background: "rgba(124,92,252,0.15)",
-              border: "1px solid rgba(124,92,252,0.25)",
+              background: "rgba(204,255,0,0.12)",
+              border: "1px solid rgba(204,255,0,0.25)",
               display: "flex", alignItems: "center", justifyContent: "center",
-              color: "rgba(160,140,255,0.85)",
+              color: "#CCFF00",
             }}>
               <CreditCardIcon />
             </div>
@@ -413,11 +415,11 @@ export default function CreditsModal({
                 </div>
                 <div style={{
                   fontSize: 72, fontWeight: 900, letterSpacing: -5, lineHeight: 1,
-                  color: profile.isFounder ? "rgba(160,140,255,0.9)"
+                  color: profile.isFounder ? "#CCFF00"
                     : isLow ? "#f97316"
                     : "#4ade80",
                   textShadow: profile.isFounder
-                    ? "0 0 40px rgba(124,92,252,0.4)"
+                    ? "0 0 40px rgba(204,255,0,0.4)"
                     : isLow
                     ? "0 0 40px rgba(249,115,22,0.4)"
                     : "0 0 40px rgba(74,222,128,0.4)",
@@ -492,11 +494,11 @@ export default function CreditsModal({
                 onClick={() => { onClose(); onBuyCredits?.(); }}
                 style={{
                   width: "100%", padding: "13px 0", borderRadius: 13, border: "none",
-                  background: "linear-gradient(135deg, #7c5cfc 0%, #4878ff 100%)",
-                  color: "white", fontSize: 14, fontWeight: 700, cursor: "pointer",
+                  background: "#CCFF00",
+                  color: "#000", fontSize: 14, fontWeight: 700, cursor: "pointer",
                   fontFamily: "inherit", letterSpacing: -0.3,
                   display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                  boxShadow: "0 4px 24px rgba(124,92,252,0.4)",
+                  boxShadow: "0 4px 24px rgba(204,255,0,0.35)",
                   marginBottom: 24, transition: "opacity 0.14s",
                 }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.opacity = "0.88"; }}

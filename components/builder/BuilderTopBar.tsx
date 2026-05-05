@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { useEditor } from "@/lib/editor/EditorContext";
 import QRCode from "qrcode";
 import ProjectDashboard from "./ProjectDashboard";
@@ -120,6 +121,13 @@ export default function BuilderTopBar() {
   const [exportError, setExportError] = useState<{ message: string; upgradeUrl?: string } | null>(null);
   const router = useRouter();
   const { project } = useEditor();
+  const { data: session } = useSession();
+
+  const userPlan = (session?.user as { plan?: string } | undefined)?.plan ?? "free";
+  const upgradeBtnLabel =
+    userPlan === "owner" || userPlan === "evermax" ? "EverMax Plan" :
+    userPlan === "everpro" ? "EverPro Plan" :
+    "Upgrade";
 
   const handleExport = async () => {
     if (exporting !== "idle") return;
@@ -392,7 +400,7 @@ export default function BuilderTopBar() {
           <svg width="13" height="11" viewBox="0 0 15 13" fill="currentColor">
             <path d="M1.5 10.5L3 5l4 3 2.5-5.5 2.5 5.5 2.5-3 1.5 5.5H1.5z"/>
           </svg>
-          Upgrade
+          {upgradeBtnLabel}
         </button>
 
         {/* Publish */}

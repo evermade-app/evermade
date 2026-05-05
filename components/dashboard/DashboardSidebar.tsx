@@ -797,28 +797,42 @@ export default function DashboardSidebar() {
             </div>
           </button>
 
-          {/* Upgrade to Pro */}
-          <button
-            onClick={() => setShowPricing(true)}
-            style={{
-              width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-              gap: 8, padding: "11px 14px", borderRadius: 12,
-              background: "#CCFF00",
-              border: "none", cursor: "pointer", marginBottom: 2,
-              boxShadow: "0 4px 20px rgba(204,255,0,0.3)",
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-              <span style={{ color: "#000", display: "flex", alignItems: "center" }}><CrownIcon /></span>
-              <span style={{ fontSize: 14, fontWeight: 700, color: "#000", letterSpacing: -0.2 }}>Upgrade to Pro</span>
-            </div>
-            <div style={{
-              width: 22, height: 22, borderRadius: "50%",
-              background: "rgba(0,0,0,0.15)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 12, color: "#000", fontWeight: 600, flexShrink: 0,
-            }}>↗</div>
-          </button>
+          {/* Upgrade to Pro / Plan label */}
+          {(() => {
+            const planName = credits?.planName ?? "";
+            const isFree = !credits || (!credits.isFounder && (planName.toLowerCase() === "free" || planName === ""));
+            const label = credits?.isFounder
+              ? "EverMax Plan"
+              : planName.toLowerCase().includes("max")
+              ? "EverMax Plan"
+              : planName.toLowerCase().includes("pro")
+              ? "EverPro Plan"
+              : "Upgrade to Pro";
+            return (
+              <button
+                onClick={() => setShowPricing(true)}
+                style={{
+                  width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
+                  gap: 8, padding: "11px 14px", borderRadius: 12,
+                  background: isFree ? "#CCFF00" : "rgba(204,255,0,0.12)",
+                  border: isFree ? "none" : "1px solid rgba(204,255,0,0.3)",
+                  cursor: "pointer", marginBottom: 2,
+                  boxShadow: isFree ? "0 4px 20px rgba(204,255,0,0.3)" : "none",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                  <span style={{ color: isFree ? "#000" : "#CCFF00", display: "flex", alignItems: "center" }}><CrownIcon /></span>
+                  <span style={{ fontSize: 14, fontWeight: 700, color: isFree ? "#000" : "#CCFF00", letterSpacing: -0.2 }}>{label}</span>
+                </div>
+                <div style={{
+                  width: 22, height: 22, borderRadius: "50%",
+                  background: isFree ? "rgba(0,0,0,0.15)" : "rgba(204,255,0,0.12)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 12, color: isFree ? "#000" : "#CCFF00", fontWeight: 600, flexShrink: 0,
+                }}>↗</div>
+              </button>
+            );
+          })()}
 
           <SidebarNavItem icon={<DatabaseIcon />} label="Buy credits" onClick={() => setShowBuyCredits(true)} />
           <SidebarNavItem icon={<GiftIcon />} label="Share Evermade" badgeGreen="+100" onClick={() => setShowShare(true)} />
