@@ -44,11 +44,11 @@ export default function BuilderChat({ messages }: Props) {
 function DateSeparator({ label }: { label: string }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 20px" }}>
-      <div style={{ flex: 1, height: 1, background: "rgba(79,142,255,0.08)" }} />
+      <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
       <span style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", fontWeight: 500, whiteSpace: "nowrap" }}>
         {label}
       </span>
-      <div style={{ flex: 1, height: 1, background: "rgba(79,142,255,0.08)" }} />
+      <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,0.06)" }} />
     </div>
   );
 }
@@ -59,7 +59,7 @@ function ThinkingDots() {
       {[0, 1, 2].map((i) => (
         <div key={i} style={{
           width: 5, height: 5, borderRadius: "50%",
-          background: "rgba(79,142,255,0.6)",
+          background: "rgba(204,255,0,0.8)",
           animationName: "thinking-pulse",
           animationDuration: "1.2s",
           animationIterationCount: "infinite",
@@ -84,16 +84,16 @@ function AIMessage({ msg }: { msg: Message }) {
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
         <div style={{
           width: 22, height: 22, borderRadius: 7,
-          background: "linear-gradient(135deg, rgba(79,142,255,0.9) 0%, rgba(124,92,252,0.9) 100%)",
+          background: "#CCFF00",
           display: "flex", alignItems: "center", justifyContent: "center",
           flexShrink: 0,
-          boxShadow: "0 0 12px rgba(79,142,255,0.4)",
+          boxShadow: "0 0 10px rgba(204,255,0,0.3)",
         }}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="white">
-            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#000" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
           </svg>
         </div>
-        <span style={{ fontSize: 12, fontWeight: 600, color: "rgba(179,210,255,0.7)", letterSpacing: -0.1 }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.5)", letterSpacing: -0.1 }}>
           Evermade AI
         </span>
       </div>
@@ -142,8 +142,8 @@ function ActionIconBtn({ children, title }: { children: React.ReactNode; title?:
       transition: "color 0.12s, background 0.12s",
     }}
       onMouseEnter={(e) => {
-        (e.currentTarget as HTMLButtonElement).style.color = "rgba(179,210,255,0.7)";
-        (e.currentTarget as HTMLButtonElement).style.background = "rgba(79,142,255,0.08)";
+        (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.65)";
+        (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.07)";
       }}
       onMouseLeave={(e) => {
         (e.currentTarget as HTMLButtonElement).style.color = "rgba(255,255,255,0.2)";
@@ -162,19 +162,19 @@ function UserMessage({ msg }: { msg: Message }) {
       <div style={{
         maxWidth: "90%",
         borderRadius: 18,
-        background: "rgba(30,70,180,0.12)",
+        background: "rgba(20,20,30,0.55)",
         backdropFilter: "blur(24px)",
         WebkitBackdropFilter: "blur(24px)",
-        border: "1px solid rgba(79,142,255,0.22)",
-        boxShadow: "0 4px 28px rgba(0,20,80,0.35), inset 0 1px 0 rgba(255,255,255,0.07)",
+        border: "1px solid rgba(204,255,0,0.22)",
+        boxShadow: "0 4px 28px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.05)",
         overflow: "hidden",
       }}>
         {/* Card header */}
         <div style={{
           display: "flex", alignItems: "center", gap: 7,
           padding: "9px 14px 8px",
-          borderBottom: "1px solid rgba(79,142,255,0.1)",
-          background: "rgba(79,142,255,0.05)",
+          borderBottom: "1px solid rgba(255,255,255,0.07)",
+          background: "rgba(255,255,255,0.03)",
         }}>
           <div style={{
             width: 20, height: 20, borderRadius: 6,
@@ -185,7 +185,7 @@ function UserMessage({ msg }: { msg: Message }) {
           }}>
             Y
           </div>
-          <span style={{ fontSize: 11.5, fontWeight: 600, color: "rgba(179,210,255,0.6)", letterSpacing: -0.1 }}>
+          <span style={{ fontSize: 11.5, fontWeight: 600, color: "rgba(255,255,255,0.5)", letterSpacing: -0.1 }}>
             You
           </span>
           <span style={{ marginLeft: "auto", fontSize: 10, color: "rgba(255,255,255,0.2)" }}>
@@ -220,7 +220,7 @@ function ParsedContent({ text }: { text: string }) {
             <span key={li} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 3 }}>
               <span style={{
                 marginTop: 8, width: 4, height: 4, borderRadius: "50%",
-                background: "rgba(79,142,255,0.6)", flexShrink: 0, display: "inline-block",
+                background: "rgba(204,255,0,0.8)", flexShrink: 0, display: "inline-block",
               }} />
               <span><BoldText text={line.slice(1).trim()} /></span>
             </span>
@@ -238,7 +238,7 @@ function BoldText({ text }: { text: string }) {
     <>
       {parts.map((part, i) =>
         i % 2 === 1
-          ? <strong key={i} style={{ color: "rgba(179,210,255,0.95)", fontWeight: 600 }}>{part}</strong>
+          ? <strong key={i} style={{ color: "rgba(255,255,255,0.95)", fontWeight: 600 }}>{part}</strong>
           : <span key={i}>{part}</span>
       )}
     </>

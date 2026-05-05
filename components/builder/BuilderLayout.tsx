@@ -226,9 +226,9 @@ function BuilderLayoutInner() {
       {/* Grid */}
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundImage: `linear-gradient(rgba(255,255,255,0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.04) 1px,transparent 1px)`, backgroundSize: "36px 36px", pointerEvents: "none", zIndex: 0 }} />
       {/* Blob A */}
-      <div style={{ position: "absolute", top: "-10%", left: "-5%", width: 1000, height: 1000, borderRadius: "50%", background: "radial-gradient(circle,rgba(124,92,252,0.13) 0%,transparent 65%)", pointerEvents: "none", zIndex: 0, animation: "evermade-blob-a 20s ease-in-out infinite" }} />
+      <div style={{ position: "absolute", top: "-10%", left: "-5%", width: 1000, height: 1000, borderRadius: "50%", background: "radial-gradient(circle,rgba(204,255,0,0.04) 0%,transparent 65%)", pointerEvents: "none", zIndex: 0, animation: "evermade-blob-a 20s ease-in-out infinite" }} />
       {/* Blob B */}
-      <div style={{ position: "absolute", bottom: "-10%", right: "0%", width: 900, height: 900, borderRadius: "50%", background: "radial-gradient(circle,rgba(30,100,255,0.1) 0%,transparent 65%)", pointerEvents: "none", zIndex: 0, animation: "evermade-blob-b 25s ease-in-out infinite" }} />
+      <div style={{ position: "absolute", bottom: "-10%", right: "0%", width: 900, height: 900, borderRadius: "50%", background: "radial-gradient(circle,rgba(204,255,0,0.03) 0%,transparent 65%)", pointerEvents: "none", zIndex: 0, animation: "evermade-blob-b 25s ease-in-out infinite" }} />
 
       <BuilderTopBar />
       {showUpgradeModal && <PricingModal onClose={() => setShowUpgradeModal(false)} />}
@@ -259,9 +259,9 @@ function BuilderLayoutInner() {
               width: 20,
               height: 56,
               borderRadius: "0 8px 8px 0",
-              border: "1px solid rgba(79,142,255,0.18)",
+              border: "1px solid rgba(204,255,0,0.25)",
               borderLeft: "none",
-              background: "rgba(8,10,32,0.82)",
+              background: "rgba(6,6,14,0.9)",
               backdropFilter: "blur(20px)",
               WebkitBackdropFilter: "blur(20px)",
               color: "rgba(255,255,255,0.45)",

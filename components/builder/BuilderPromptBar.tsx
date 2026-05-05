@@ -76,15 +76,13 @@ export default function BuilderPromptBar({ value, onChange, onSend }: Props) {
       {/* Composer */}
       <div style={{
         borderRadius: 16,
-        border: `1px solid ${focused ? "rgba(79,142,255,0.35)" : hasVEContext ? "rgba(124,92,252,0.25)" : "rgba(79,142,255,0.14)"}`,
-        background: focused ? "rgba(20,50,140,0.14)" : "rgba(10,16,50,0.55)",
+        border: `1px solid ${focused ? "rgba(204,255,0,0.55)" : hasVEContext ? "rgba(204,255,0,0.3)" : "rgba(204,255,0,0.18)"}`,
+        background: focused ? "rgba(0,0,0,0.55)" : "rgba(6,6,14,0.75)",
         backdropFilter: "blur(30px)",
         WebkitBackdropFilter: "blur(30px)",
         boxShadow: focused
-          ? "0 0 0 3px rgba(79,142,255,0.08), 0 4px 28px rgba(0,20,80,0.4)"
-          : hasVEContext
-            ? "0 0 0 3px rgba(124,92,252,0.06), 0 4px 20px rgba(0,0,0,0.3)"
-            : "0 4px 20px rgba(0,0,0,0.3)",
+          ? "0 0 0 3px rgba(204,255,0,0.06), 0 4px 28px rgba(0,0,0,0.5)"
+          : "0 4px 20px rgba(0,0,0,0.4)",
         transition: "border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease",
         overflow: "hidden",
       }}>
@@ -104,14 +102,14 @@ export default function BuilderPromptBar({ value, onChange, onSend }: Props) {
                 <div style={{
                   display: "inline-flex", alignItems: "center", gap: 5,
                   padding: "3px 7px 3px 6px", borderRadius: 20,
-                  background: "rgba(124,92,252,0.1)",
-                  border: "1px solid rgba(124,92,252,0.22)",
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.12)",
                 }}>
-                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="rgba(160,140,255,0.8)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
                     <polyline points="14 2 14 8 20 8"/>
                   </svg>
-                  <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(160,140,255,0.9)", letterSpacing: 0.15 }}>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.75)", letterSpacing: 0.15 }}>
                     {veSelection.screenName}
                   </span>
                 </div>
@@ -120,13 +118,13 @@ export default function BuilderPromptBar({ value, onChange, onSend }: Props) {
                 <div style={{
                   display: "inline-flex", alignItems: "center", gap: 5,
                   padding: "3px 7px 3px 6px", borderRadius: 20,
-                  background: "rgba(124,92,252,0.1)",
-                  border: "1px solid rgba(124,92,252,0.22)",
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.12)",
                 }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: "rgba(160,140,255,0.7)", letterSpacing: 0.1, fontFamily: "ui-monospace, monospace" }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: 0.1, fontFamily: "ui-monospace, monospace" }}>
                     T
                   </span>
-                  <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(160,140,255,0.9)", letterSpacing: 0.15 }}>
+                  <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.75)", letterSpacing: 0.15 }}>
                     {veSelection.elementTag}
                     {veSelection.elementText ? ` "${veSelection.elementText.slice(0, 22)}${veSelection.elementText.length > 22 ? "…" : ""}"` : ""}
                   </span>
@@ -144,14 +142,14 @@ export default function BuilderPromptBar({ value, onChange, onSend }: Props) {
               <div style={{
                 display: "inline-flex", alignItems: "center", gap: 5,
                 padding: "3px 7px 3px 6px", borderRadius: 20,
-                background: "rgba(124,92,252,0.1)",
-                border: "1px solid rgba(124,92,252,0.22)",
+                background: "rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.12)",
               }}>
                 <div style={{
                   width: 4, height: 4, borderRadius: "50%",
-                  background: "#7c5cfc", boxShadow: "0 0 5px rgba(124,92,252,0.9)", flexShrink: 0,
+                  background: "#CCFF00", flexShrink: 0,
                 }} />
-                <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(160,140,255,0.9)", letterSpacing: 0.15 }}>
+                <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.75)", letterSpacing: 0.15 }}>
                   {chipLabel}
                 </span>
                 <button type="button" onClick={() => setSelection(null)} style={{
@@ -209,9 +207,9 @@ export default function BuilderPromptBar({ value, onChange, onSend }: Props) {
             style={{
               width: 30, height: 30,
               borderRadius: 9,
-              border: `1px solid ${plusOpen ? "rgba(79,142,255,0.35)" : "rgba(79,142,255,0.15)"}`,
-              background: plusOpen ? "rgba(79,142,255,0.16)" : "rgba(79,142,255,0.06)",
-              color: plusOpen ? "rgba(179,210,255,0.9)" : "rgba(255,255,255,0.5)",
+              border: `1px solid ${plusOpen ? "rgba(204,255,0,0.5)" : "rgba(255,255,255,0.12)"}`,
+              background: plusOpen ? "rgba(204,255,0,0.08)" : "rgba(255,255,255,0.04)",
+              color: plusOpen ? "#CCFF00" : "rgba(255,255,255,0.5)",
               display: "flex", alignItems: "center", justifyContent: "center",
               cursor: "pointer",
               fontSize: plusOpen ? 16 : 20,
@@ -269,13 +267,11 @@ export default function BuilderPromptBar({ value, onChange, onSend }: Props) {
             style={{
               width: 30, height: 30, borderRadius: "50%",
               border: "none",
-              background: canSend
-                ? "linear-gradient(135deg, #7c5cfc 0%, #4878ff 100%)"
-                : "rgba(255,255,255,0.07)",
-              color: canSend ? "white" : "rgba(255,255,255,0.22)",
+              background: canSend ? "#CCFF00" : "rgba(255,255,255,0.07)",
+              color: canSend ? "#000" : "rgba(255,255,255,0.22)",
               cursor: canSend ? "pointer" : "default",
               display: "flex", alignItems: "center", justifyContent: "center",
-              boxShadow: canSend ? "0 3px 14px rgba(124,92,252,0.45)" : "none",
+              boxShadow: canSend ? "0 3px 14px rgba(204,255,0,0.35)" : "none",
               transition: "all 0.18s ease",
               flexShrink: 0,
             }}

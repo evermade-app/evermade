@@ -52,11 +52,11 @@ export default function BuilderSidebar({
         height: "100%",
         display: "flex",
         flexDirection: "column",
-        borderRight: "1px solid rgba(79,142,255,0.12)",
-        background: "rgba(8,10,32,0.62)",
+        borderRight: "1px solid rgba(255,255,255,0.07)",
+        background: "rgba(6,6,14,0.75)",
         backdropFilter: "blur(60px)",
         WebkitBackdropFilter: "blur(60px)",
-        boxShadow: "1px 0 0 rgba(79,142,255,0.06), 8px 0 40px rgba(0,0,0,0.4)",
+        boxShadow: "8px 0 40px rgba(0,0,0,0.5)",
         position: "relative",
       }}>
 
@@ -64,8 +64,8 @@ export default function BuilderSidebar({
         <div style={{
           display: "flex", alignItems: "center", gap: 10,
           padding: "13px 16px 12px",
-          borderBottom: "1px solid rgba(79,142,255,0.1)",
-          background: "rgba(79,142,255,0.03)",
+          borderBottom: "1px solid rgba(255,255,255,0.07)",
+          background: "rgba(255,255,255,0.02)",
           flexShrink: 0,
         }}>
           {/* Brand icon */}

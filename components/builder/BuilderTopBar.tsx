@@ -48,14 +48,12 @@ function ShareModal({ previewUrl, onClose }: { previewUrl: string; onClose: () =
           display: "flex", flexDirection: "column", alignItems: "center", gap: 20,
         }}
       >
-        {/* Title */}
         <div style={{ fontSize: 17, fontWeight: 800, color: "#fff", letterSpacing: -0.3 }}>
           Share your app preview
         </div>
 
-        {/* QR code */}
         {qrDataUrl ? (
-          <div style={{ padding: 14, background: "#fff", borderRadius: 16, boxShadow: "0 8px 32px rgba(124,92,252,0.35)" }}>
+          <div style={{ padding: 14, background: "#fff", borderRadius: 16, boxShadow: "0 8px 32px rgba(204,255,0,0.2)" }}>
             <img src={qrDataUrl} width={160} height={160} alt="QR code" style={{ display: "block", borderRadius: 6 }} />
           </div>
         ) : (
@@ -64,12 +62,10 @@ function ShareModal({ previewUrl, onClose }: { previewUrl: string; onClose: () =
           </div>
         )}
 
-        {/* Caption */}
         <div style={{ fontSize: 12, color: "rgba(255,255,255,0.38)", textAlign: "center", lineHeight: 1.55 }}>
           Anyone who scans this or opens the link<br />sees your app — no login required
         </div>
 
-        {/* URL + copy */}
         <div style={{ display: "flex", gap: 8, width: "100%" }}>
           <div style={{
             flex: 1, padding: "10px 12px", borderRadius: 10,
@@ -84,15 +80,14 @@ function ShareModal({ previewUrl, onClose }: { previewUrl: string; onClose: () =
             style={{
               padding: "10px 16px", borderRadius: 10, border: "none", cursor: "pointer",
               fontSize: 12, fontWeight: 700, transition: "all 0.18s",
-              background: copied ? "rgba(52,211,153,0.15)" : "linear-gradient(135deg, #7C5CFC, #4878FF)",
-              color: copied ? "#34D399" : "#fff",
+              background: copied ? "rgba(52,211,153,0.15)" : "#CCFF00",
+              color: copied ? "#34D399" : "#000",
             }}
           >
             {copied ? "✓" : "Copy"}
           </button>
         </div>
 
-        {/* Close */}
         <button
           onClick={onClose}
           style={{
@@ -200,11 +195,11 @@ export default function BuilderTopBar() {
       display: "flex",
       alignItems: "center",
       padding: "0 14px",
-      borderBottom: "1px solid rgba(79,142,255,0.22)",
+      borderBottom: "1px solid rgba(255,255,255,0.07)",
       background: "rgba(6,6,22,0.97)",
       backdropFilter: "blur(60px)",
       WebkitBackdropFilter: "blur(60px)",
-      boxShadow: "0 1px 0 rgba(79,142,255,0.12), 0 8px 32px rgba(0,0,0,0.5)",
+      boxShadow: "0 1px 0 rgba(255,255,255,0.04), 0 8px 32px rgba(0,0,0,0.5)",
       gap: 0,
       flexShrink: 0,
       zIndex: 30,
@@ -213,14 +208,13 @@ export default function BuilderTopBar() {
 
       {/* ── LEFT — brand + project name ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, flex: "0 0 auto", minWidth: 0 }}>
-        {/* Brand */}
         <button
           onClick={() => router.push("/dashboard")}
           style={{
             border: "none", cursor: "pointer", padding: 0,
             fontSize: 17, fontWeight: 800, letterSpacing: -0.5,
             fontFamily: "inherit",
-            background: "linear-gradient(135deg, #ffffff 0%, rgba(179,206,255,0.9) 100%)",
+            background: "linear-gradient(135deg, #ffffff 0%, rgba(255,255,255,0.75) 100%)",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
             backgroundClip: "text",
@@ -229,7 +223,6 @@ export default function BuilderTopBar() {
           Evermade
         </button>
 
-        {/* Divider */}
         <div style={{ width: 1, height: 18, background: "rgba(255,255,255,0.12)" }} />
 
         {/* Project name pill */}
@@ -237,11 +230,10 @@ export default function BuilderTopBar() {
           display: "flex", alignItems: "center", gap: 6,
           padding: "4px 10px",
           borderRadius: 8,
-          background: "rgba(79,142,255,0.06)",
-          border: "1px solid rgba(79,142,255,0.14)",
+          background: "rgba(255,255,255,0.04)",
+          border: "1px solid rgba(255,255,255,0.09)",
           cursor: "pointer",
           fontFamily: "inherit",
-          boxShadow: "0 0 10px rgba(79,142,255,0.07)",
         }}>
           <GlobeIcon />
           <span style={{ fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,0.82)", letterSpacing: -0.2, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -263,7 +255,6 @@ export default function BuilderTopBar() {
             : () => setActiveTab(item.id);
 
           if (item.label) {
-            // Full pill tab (Preview / Dashboard)
             return (
               <button
                 key={item.id}
@@ -273,16 +264,16 @@ export default function BuilderTopBar() {
                   display: "flex", alignItems: "center", gap: 6,
                   padding: "5px 14px",
                   borderRadius: 8,
-                  background: isActive ? "rgba(79,142,255,0.15)" : "transparent",
-                  color: isActive ? "rgba(179,210,255,0.95)" : "rgba(255,255,255,0.38)",
+                  background: isActive ? "rgba(0,0,0,0.5)" : "transparent",
+                  color: isActive ? "rgba(255,255,255,0.95)" : "rgba(255,255,255,0.38)",
                   fontSize: 13,
                   fontWeight: isActive ? 600 : 400,
                   cursor: "pointer",
                   transition: "all 0.14s ease",
                   fontFamily: "inherit",
                   letterSpacing: -0.1,
-                  border: isActive ? "1px solid rgba(79,142,255,0.22)" : "1px solid transparent",
-                  boxShadow: isActive ? "0 0 12px rgba(79,142,255,0.15)" : "none",
+                  border: isActive ? "1px solid rgba(204,255,0,0.5)" : "1px solid transparent",
+                  boxShadow: isActive ? "0 0 12px rgba(204,255,0,0.12)" : "none",
                 }}
               >
                 <Icon active={isActive} />
@@ -291,7 +282,6 @@ export default function BuilderTopBar() {
             );
           }
 
-          // Icon-only button
           return (
             <button
               key={item.id}
@@ -302,8 +292,8 @@ export default function BuilderTopBar() {
                 display: "flex", alignItems: "center", justifyContent: "center",
                 borderRadius: 7,
                 border: "none",
-                background: isActive ? "rgba(79,142,255,0.14)" : "transparent",
-                color: isActive ? "rgba(179,210,255,0.88)" : "rgba(255,255,255,0.35)",
+                background: isActive ? "rgba(0,0,0,0.5)" : "transparent",
+                color: isActive ? "rgba(255,255,255,0.88)" : "rgba(255,255,255,0.35)",
                 cursor: "pointer",
                 transition: "all 0.14s ease",
               }}
@@ -317,22 +307,19 @@ export default function BuilderTopBar() {
       {/* ── RIGHT ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 6, flex: "0 0 auto" }}>
 
-        {/* Collaborator avatars */}
         <div style={{ display: "flex", alignItems: "center", marginRight: 2 }}>
-          <Avatar label="Y" color="linear-gradient(135deg,#7c5cfc,#4878ff)" style={{ zIndex: 3 }} />
+          <Avatar label="Y" color="#CCFF00" textColor="#000" style={{ zIndex: 3 }} />
         </div>
 
-        {/* Lightning (fast mode) */}
         <TopIconBtn title="Fast mode" accent="#fbbf24">
           <svg width="12" height="15" viewBox="0 0 24 24" fill="currentColor">
             <path d="M13 2 4.09 12.96A1 1 0 0 0 5 14.5h6.5L11 22l8.91-10.96A1 1 0 0 0 19 9.5H12.5L13 2z"/>
           </svg>
         </TopIconBtn>
 
-        {/* Divider */}
         <div style={{ width: 1, height: 18, background: "rgba(255,255,255,0.1)", margin: "0 2px" }} />
 
-        {/* Export to Expo */}
+        {/* Export */}
         <button
           onClick={handleExport}
           disabled={exporting !== "idle"}
@@ -360,7 +347,7 @@ export default function BuilderTopBar() {
           {exporting === "generating" ? "Generating…" : exporting === "packaging" ? "Packaging…" : "Export"}
         </button>
 
-        {/* Share preview */}
+        {/* Share */}
         <button
           onClick={handleShare}
           disabled={sharing}
@@ -368,9 +355,9 @@ export default function BuilderTopBar() {
             display: "flex", alignItems: "center", gap: 5,
             padding: "6px 13px",
             borderRadius: 9,
-            border: "1px solid rgba(124,92,252,0.28)",
-            background: sharing ? "rgba(124,92,252,0.05)" : "rgba(124,92,252,0.10)",
-            color: sharing ? "rgba(167,139,250,0.4)" : "#a78bfa",
+            border: "1px solid rgba(255,255,255,0.12)",
+            background: sharing ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.06)",
+            color: sharing ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.7)",
             fontSize: 12.5,
             fontWeight: 600,
             cursor: sharing ? "default" : "pointer",
@@ -391,15 +378,15 @@ export default function BuilderTopBar() {
           display: "flex", alignItems: "center", gap: 6,
           padding: "6px 14px",
           borderRadius: 9,
-          border: "none",
-          background: "linear-gradient(135deg, rgba(124,58,237,0.9) 0%, rgba(109,40,217,0.9) 100%)",
-          color: "white",
+          border: "1px solid rgba(204,255,0,0.55)",
+          background: "rgba(0,0,0,0.6)",
+          color: "#CCFF00",
           fontSize: 12.5,
           fontWeight: 600,
           cursor: "pointer",
           fontFamily: "inherit",
           letterSpacing: -0.1,
-          boxShadow: "0 2px 16px rgba(124,58,237,0.45), 0 0 0 1px rgba(124,58,237,0.3)",
+          boxShadow: "0 2px 12px rgba(204,255,0,0.12)",
           transition: "all 0.14s ease",
         }}>
           <svg width="13" height="11" viewBox="0 0 15 13" fill="currentColor">
@@ -413,37 +400,33 @@ export default function BuilderTopBar() {
           display: "flex", alignItems: "center", gap: 6,
           padding: "6px 14px",
           borderRadius: 9,
-          border: "none",
-          background: "linear-gradient(135deg, rgba(37,99,235,0.95) 0%, rgba(29,78,216,0.95) 100%)",
-          color: "white",
+          border: "1px solid rgba(204,255,0,0.7)",
+          background: "#CCFF00",
+          color: "#000",
           fontSize: 12.5,
-          fontWeight: 600,
+          fontWeight: 700,
           cursor: "pointer",
           fontFamily: "inherit",
           letterSpacing: -0.1,
-          boxShadow: "0 2px 16px rgba(37,99,235,0.5), 0 0 0 1px rgba(79,142,255,0.3)",
+          boxShadow: "0 2px 12px rgba(204,255,0,0.25)",
           transition: "all 0.14s ease",
         }}>
           <GlobeIconSm />
           Publish
         </button>
 
-        {/* User avatar */}
-        <Avatar label="Y" color="linear-gradient(135deg,#7c5cfc,#4878ff)" size={30} />
+        <Avatar label="Y" color="#CCFF00" textColor="#000" size={30} />
       </div>
     </div>
 
-    {/* Share modal — rendered outside the bar so it overlays everything */}
     {shareUrl && (
       <ShareModal previewUrl={shareUrl!} onClose={() => setShareUrl(null)} />
     )}
 
-    {/* Dashboard modal */}
     {showDashboard && (
       <ProjectDashboard onClose={() => setShowDashboard(false)} />
     )}
 
-    {/* Export error toast */}
     {exportError && (
       <div style={{
         position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)",
@@ -462,9 +445,9 @@ export default function BuilderTopBar() {
           <a
             href={exportError.upgradeUrl}
             style={{
-              padding: "6px 14px", borderRadius: 8, border: "none",
-              background: "linear-gradient(135deg, rgba(124,58,237,0.9), rgba(109,40,217,0.9))",
-              color: "#fff", fontSize: 12, fontWeight: 700, textDecoration: "none",
+              padding: "6px 14px", borderRadius: 8, border: "1px solid rgba(204,255,0,0.5)",
+              background: "rgba(0,0,0,0.6)",
+              color: "#CCFF00", fontSize: 12, fontWeight: 700, textDecoration: "none",
               whiteSpace: "nowrap", flexShrink: 0,
             }}
           >
@@ -493,11 +476,13 @@ export default function BuilderTopBar() {
 function Avatar({
   label,
   color,
+  textColor = "white",
   size = 26,
   style: extraStyle,
 }: {
   label: string;
   color: string;
+  textColor?: string;
   size?: number;
   style?: React.CSSProperties;
 }) {
@@ -506,8 +491,8 @@ function Avatar({
       width: size, height: size, borderRadius: "50%",
       background: color,
       display: "flex", alignItems: "center", justifyContent: "center",
-      fontSize: size * 0.42, fontWeight: 700, color: "white",
-      border: "2px solid rgba(79,142,255,0.2)",
+      fontSize: size * 0.42, fontWeight: 700, color: textColor,
+      border: "2px solid rgba(255,255,255,0.1)",
       flexShrink: 0,
       ...extraStyle,
     }}>
@@ -596,7 +581,7 @@ function GlobeIcon() {
 }
 function GlobeIconSm() {
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(0,0,0,0.7)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <circle cx="12" cy="12" r="10"/>
       <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
     </svg>
