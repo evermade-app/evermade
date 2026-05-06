@@ -1,34 +1,88 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useEditor } from "@/lib/editor/EditorContext";
 import { getComponent, getComponentLabel } from "@/lib/editor/projectState";
 import PlusMenu from "./PlusMenu";
+import type { Attachment } from "./BuilderLayout";
+
+const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
+const TEXT_MIME = new Set(["text/plain", "text/markdown", "text/csv", "application/json"]);
+const TEXT_EXT = /\.(txt|md|csv|json)$/i;
+
+function formatBytes(b: number): string {
+  if (b < 1024) return `${b} B`;
+  if (b < 1024 * 1024) return `${Math.round(b / 1024)} KB`;
+  return `${(b / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+async function processFile(file: File): Promise<Attachment | "too_large"> {
+  if (file.size > MAX_FILE_BYTES) return "too_large";
+
+  const kind: Attachment["kind"] =
+    file.type.startsWith("image/") ? "image" :
+    TEXT_MIME.has(file.type) || TEXT_EXT.test(file.name) ? "text" :
+    "binary";
+
+  let dataUrl = "";
+  let textContent: string | undefined;
+
+  if (kind === "image") {
+    dataUrl = await new Promise<string>((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result as string);
+      r.onerror = rej;
+      r.readAsDataURL(file);
+    });
+  } else if (kind === "text") {
+    textContent = await new Promise<string>((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result as string);
+      r.onerror = rej;
+      r.readAsText(file);
+    });
+  }
+
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    name: file.name,
+    size: file.size,
+    mimeType: file.type || "application/octet-stream",
+    dataUrl,
+    kind,
+    textContent,
+  };
+}
 
 type Props = {
   value: string;
   onChange: (v: string) => void;
   onSend: (content?: string) => void;
+  attachments: Attachment[];
+  onAttachmentsChange: (a: Attachment[]) => void;
 };
 
-export default function BuilderPromptBar({ value, onChange, onSend }: Props) {
+export default function BuilderPromptBar({ value, onChange, onSend, attachments, onAttachmentsChange }: Props) {
   const [focused, setFocused] = useState(false);
   const [plusOpen, setPlusOpen] = useState(false);
   const [chipVisible, setChipVisible] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { selection, setSelection, project, veSelection, setVeSelection } = useEditor();
 
-  // Legacy component chip (existing feature)
   const selectedComponent = selection
     ? getComponent(project, selection.screenId, selection.componentId)
     : null;
   const chipLabel = selectedComponent ? getComponentLabel(selectedComponent) : null;
 
-  // VE chips take priority over legacy chip
   const hasVEContext = !!veSelection;
   const hasContext = hasVEContext || !!chipLabel;
+  const hasAttachments = attachments.length > 0;
 
-  const canSend = value.trim().length > 0 || hasContext;
+  const canSend = value.trim().length > 0 || hasContext || hasAttachments;
 
   useEffect(() => {
     if (hasContext) {
@@ -40,6 +94,46 @@ export default function BuilderPromptBar({ value, onChange, onSend }: Props) {
     }
   }, [hasContext, veSelection, selection]);
 
+  // Auto-dismiss toast
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 3500);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  const showToast = useCallback((msg: string) => setToast(msg), []);
+
+  const processFiles = useCallback(async (files: FileList) => {
+    const results: Attachment[] = [];
+    for (const file of Array.from(files)) {
+      const result = await processFile(file);
+      if (result === "too_large") {
+        showToast(`"${file.name}" is too large. Max 10 MB.`);
+        continue;
+      }
+      results.push(result);
+    }
+    if (results.length > 0) {
+      onAttachmentsChange([...attachments, ...results]);
+    }
+  }, [attachments, onAttachmentsChange, showToast]);
+
+  const handleImageInput = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.length) await processFiles(e.target.files);
+    e.target.value = "";
+    setPlusOpen(false);
+  }, [processFiles]);
+
+  const handleFileInput = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.length) await processFiles(e.target.files);
+    e.target.value = "";
+    setPlusOpen(false);
+  }, [processFiles]);
+
+  const removeAttachment = useCallback((id: string) => {
+    onAttachmentsChange(attachments.filter((a) => a.id !== id));
+  }, [attachments, onAttachmentsChange]);
+
   const handleSend = () => {
     let prefix = "";
     if (hasVEContext && veSelection) {
@@ -48,35 +142,70 @@ export default function BuilderPromptBar({ value, onChange, onSend }: Props) {
       prefix = `[${chipLabel}] `;
     }
     const fullContent = prefix + value;
-    if (!fullContent.trim()) return;
-    onSend(fullContent);
+    if (!fullContent.trim() && !hasAttachments) return;
+    onSend(fullContent || undefined);
     onChange("");
     setSelection(null);
-    // keep veSelection — BuilderLayout clears it after successful edit
   };
 
-  const clearVEContext = () => {
-    setVeSelection(null);
-  };
+  const clearVEContext = () => setVeSelection(null);
 
-  const placeholder = hasVEContext && veSelection
-    ? `What changes do you want to make to the ${veSelection.elementTag}?`
-    : chipLabel
-      ? `Ask Evermade about ${chipLabel}…`
-      : "Ask Evermade…";
+  const placeholder = hasAttachments
+    ? "Describe what to build, or let the AI use your uploaded assets…"
+    : hasVEContext && veSelection
+      ? `What changes do you want to make to the ${veSelection.elementTag}?`
+      : chipLabel
+        ? `Ask Evermade about ${chipLabel}…`
+        : "Ask Evermade…";
 
   return (
-    <div style={{
-      padding: "10px 16px 16px",
-      flexShrink: 0,
-      position: "relative",
-    }}>
-      {plusOpen && <PlusMenu onClose={() => setPlusOpen(false)} />}
+    <div style={{ padding: "10px 16px 16px", flexShrink: 0, position: "relative" }}>
+      {/* Hidden file inputs */}
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        style={{ display: "none" }}
+        onChange={handleImageInput}
+      />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf,.doc,.docx,.txt,.md,.csv,.json,.png,.jpg,.jpeg,.svg,.gif,.mp4,.zip,image/*"
+        multiple
+        style={{ display: "none" }}
+        onChange={handleFileInput}
+      />
+
+      {plusOpen && (
+        <PlusMenu
+          onClose={() => setPlusOpen(false)}
+          onUploadImage={() => imageInputRef.current?.click()}
+          onAttachFile={() => fileInputRef.current?.click()}
+        />
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div style={{
+          position: "absolute", bottom: "calc(100% + 8px)", left: 16, right: 16,
+          background: "rgba(255,60,60,0.92)", backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          borderRadius: 10, padding: "9px 14px",
+          fontSize: 12, color: "#fff", fontWeight: 500,
+          boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
+          zIndex: 200, animation: "toastIn 0.18s ease both",
+        }}>
+          <style>{`@keyframes toastIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}`}</style>
+          {toast}
+        </div>
+      )}
 
       {/* Composer */}
       <div style={{
         borderRadius: 16,
-        border: `1px solid ${focused ? "rgba(204,255,0,0.55)" : hasVEContext ? "rgba(204,255,0,0.3)" : "rgba(204,255,0,0.18)"}`,
+        border: `1px solid ${focused ? "rgba(204,255,0,0.55)" : hasVEContext ? "rgba(204,255,0,0.3)" : hasAttachments ? "rgba(204,255,0,0.35)" : "rgba(204,255,0,0.18)"}`,
         background: focused ? "rgba(0,0,0,0.55)" : "rgba(6,6,14,0.75)",
         backdropFilter: "blur(30px)",
         WebkitBackdropFilter: "blur(30px)",
@@ -87,7 +216,7 @@ export default function BuilderPromptBar({ value, onChange, onSend }: Props) {
         overflow: "hidden",
       }}>
 
-        {/* Context chips */}
+        {/* Context chips (VE selection / legacy) */}
         {hasContext && (
           <div style={{
             padding: "9px 12px 0",
@@ -98,12 +227,10 @@ export default function BuilderPromptBar({ value, onChange, onSend }: Props) {
           }}>
             {hasVEContext && veSelection ? (
               <>
-                {/* Screen chip */}
                 <div style={{
                   display: "inline-flex", alignItems: "center", gap: 5,
                   padding: "3px 7px 3px 6px", borderRadius: 20,
-                  background: "rgba(255,255,255,0.06)",
-                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)",
                 }}>
                   <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -113,17 +240,12 @@ export default function BuilderPromptBar({ value, onChange, onSend }: Props) {
                     {veSelection.screenName}
                   </span>
                 </div>
-
-                {/* Element chip */}
                 <div style={{
                   display: "inline-flex", alignItems: "center", gap: 5,
                   padding: "3px 7px 3px 6px", borderRadius: 20,
-                  background: "rgba(255,255,255,0.06)",
-                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)",
                 }}>
-                  <span style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: 0.1, fontFamily: "ui-monospace, monospace" }}>
-                    T
-                  </span>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.5)", letterSpacing: 0.1, fontFamily: "ui-monospace, monospace" }}>T</span>
                   <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.75)", letterSpacing: 0.15 }}>
                     {veSelection.elementTag}
                     {veSelection.elementText ? ` "${veSelection.elementText.slice(0, 22)}${veSelection.elementText.length > 22 ? "…" : ""}"` : ""}
@@ -138,20 +260,13 @@ export default function BuilderPromptBar({ value, onChange, onSend }: Props) {
                 </div>
               </>
             ) : chipLabel ? (
-              /* Legacy single chip */
               <div style={{
                 display: "inline-flex", alignItems: "center", gap: 5,
                 padding: "3px 7px 3px 6px", borderRadius: 20,
-                background: "rgba(255,255,255,0.06)",
-                border: "1px solid rgba(255,255,255,0.12)",
+                background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)",
               }}>
-                <div style={{
-                  width: 4, height: 4, borderRadius: "50%",
-                  background: "#CCFF00", flexShrink: 0,
-                }} />
-                <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.75)", letterSpacing: 0.15 }}>
-                  {chipLabel}
-                </span>
+                <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#CCFF00", flexShrink: 0 }} />
+                <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.75)", letterSpacing: 0.15 }}>{chipLabel}</span>
                 <button type="button" onClick={() => setSelection(null)} style={{
                   width: 13, height: 13, borderRadius: "50%",
                   background: "rgba(255,255,255,0.08)", border: "none",
@@ -161,6 +276,18 @@ export default function BuilderPromptBar({ value, onChange, onSend }: Props) {
                 }}>×</button>
               </div>
             ) : null}
+          </div>
+        )}
+
+        {/* Attachment preview strip */}
+        {hasAttachments && (
+          <div style={{
+            padding: "9px 12px 0",
+            display: "flex", gap: 6, flexWrap: "wrap",
+          }}>
+            {attachments.map((att) => (
+              <AttachmentChip key={att.id} att={att} onRemove={() => removeAttachment(att.id)} />
+            ))}
           </div>
         )}
 
@@ -180,7 +307,7 @@ export default function BuilderPromptBar({ value, onChange, onSend }: Props) {
             background: "transparent",
             border: "none",
             outline: "none",
-            padding: hasContext ? "8px 14px 10px" : "14px 14px 10px",
+            padding: (hasContext || hasAttachments) ? "8px 14px 10px" : "14px 14px 10px",
             color: "rgba(255,255,255,0.86)",
             fontSize: 14,
             lineHeight: 1.6,
@@ -192,13 +319,8 @@ export default function BuilderPromptBar({ value, onChange, onSend }: Props) {
           }}
         />
 
-        {/* ── Bottom toolbar ── */}
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          padding: "8px 10px 10px",
-        }}>
+        {/* Bottom toolbar */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 10px 10px" }}>
           {/* + button */}
           <button
             type="button"
@@ -212,9 +334,7 @@ export default function BuilderPromptBar({ value, onChange, onSend }: Props) {
               color: plusOpen ? "#CCFF00" : "rgba(255,255,255,0.5)",
               display: "flex", alignItems: "center", justifyContent: "center",
               cursor: "pointer",
-              fontSize: plusOpen ? 16 : 20,
-              fontWeight: 300,
-              lineHeight: 1,
+              fontSize: plusOpen ? 16 : 20, fontWeight: 300, lineHeight: 1,
               flexShrink: 0,
               transition: "all 0.14s ease",
             }}
@@ -222,7 +342,6 @@ export default function BuilderPromptBar({ value, onChange, onSend }: Props) {
             {plusOpen ? "×" : "+"}
           </button>
 
-          {/* Spacer */}
           <div style={{ flex: 1 }} />
 
           {/* Build dropdown */}
@@ -282,6 +401,70 @@ export default function BuilderPromptBar({ value, onChange, onSend }: Props) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function AttachmentChip({ att, onRemove }: { att: Attachment; onRemove: () => void }) {
+  const [hov, setHov] = useState(false);
+  return (
+    <div
+      onMouseEnter={() => setHov(true)}
+      onMouseLeave={() => setHov(false)}
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 6,
+        padding: att.kind === "image" ? "2px 8px 2px 2px" : "4px 8px 4px 6px",
+        borderRadius: 9,
+        background: "rgba(255,255,255,0.07)",
+        border: "1px solid rgba(255,255,255,0.12)",
+        maxWidth: 200,
+        transition: "background 0.12s",
+      }}
+    >
+      {att.kind === "image" ? (
+        /* Thumbnail */
+        <div style={{
+          width: 36, height: 36, borderRadius: 7, overflow: "hidden", flexShrink: 0,
+          background: "rgba(255,255,255,0.06)",
+        }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={att.dataUrl} alt={att.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+        </div>
+      ) : (
+        /* File icon */
+        <div style={{
+          width: 28, height: 28, borderRadius: 7,
+          background: "rgba(204,255,0,0.08)", border: "1px solid rgba(204,255,0,0.18)",
+          display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+        }}>
+          <svg width="12" height="14" viewBox="0 0 12 14" fill="none">
+            <path d="M2 1h5l4 4v8a1 1 0 01-1 1H2a1 1 0 01-1-1V2a1 1 0 011-1z" stroke="#CCFF00" strokeWidth="1.2"/>
+            <path d="M7 1v4h4" stroke="#CCFF00" strokeWidth="1.2"/>
+          </svg>
+        </div>
+      )}
+      <div style={{ minWidth: 0 }}>
+        <div style={{
+          fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.8)",
+          overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+          maxWidth: 110,
+        }}>{att.name}</div>
+        <div style={{ fontSize: 9, color: "rgba(255,255,255,0.35)", marginTop: 1 }}>
+          {formatBytes(att.size)}
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onRemove}
+        style={{
+          width: 14, height: 14, borderRadius: "50%",
+          background: hov ? "rgba(255,255,255,0.15)" : "rgba(255,255,255,0.07)",
+          border: "none", color: "rgba(255,255,255,0.5)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          cursor: "pointer", fontSize: 10, lineHeight: 1, padding: 0, flexShrink: 0,
+          transition: "background 0.12s",
+        }}
+      >×</button>
     </div>
   );
 }

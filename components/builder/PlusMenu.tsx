@@ -82,9 +82,9 @@ const AI_MODELS = [
   },
 ];
 
-type Props = { onClose: () => void };
+type Props = { onClose: () => void; onUploadImage: () => void; onAttachFile: () => void };
 
-export default function PlusMenu({ onClose }: Props) {
+export default function PlusMenu({ onClose, onUploadImage, onAttachFile }: Props) {
   const [view, setView] = useState<View>("main");
 
   return (
@@ -120,7 +120,7 @@ export default function PlusMenu({ onClose }: Props) {
           zIndex: 100,
         }}
       >
-        {view === "main" && <MainView setView={setView} />}
+        {view === "main" && <MainView setView={setView} onUploadImage={onUploadImage} onAttachFile={onAttachFile} />}
         {view === "payments" && (
           <PaymentsView back={() => setView("main")} />
         )}
@@ -133,7 +133,7 @@ export default function PlusMenu({ onClose }: Props) {
 
 /* ─────────────────────── MAIN VIEW ─────────────────────── */
 
-function MainView({ setView }: { setView: (v: View) => void }) {
+function MainView({ setView, onUploadImage, onAttachFile }: { setView: (v: View) => void; onUploadImage: () => void; onAttachFile: () => void }) {
   return (
     <div
       style={{
@@ -165,19 +165,22 @@ function MainView({ setView }: { setView: (v: View) => void }) {
       <div style={{ padding: "12px 12px 6px" }}>
         <SectionLabel>Attach</SectionLabel>
         <MenuRow
-          iconBg="rgba(255,255,255,0.06)"
+          iconBg="rgba(204,255,0,0.08)"
+          iconBorder="rgba(204,255,0,0.18)"
           icon={
             <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
-              <rect x="1" y="1" width="13" height="13" rx="2.5" stroke="rgba(255,255,255,0.5)" strokeWidth="1.3"/>
-              <circle cx="5" cy="5.5" r="1.5" fill="rgba(255,255,255,0.5)"/>
-              <path d="M1.5 10.5l3-3 2.5 2.5 2.5-3 4 4" stroke="rgba(255,255,255,0.5)" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+              <rect x="1" y="1" width="13" height="13" rx="2.5" stroke="#CCFF00" strokeWidth="1.3"/>
+              <circle cx="5" cy="5.5" r="1.5" fill="#CCFF00"/>
+              <path d="M1.5 10.5l3-3 2.5 2.5 2.5-3 4 4" stroke="#CCFF00" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           }
           label="Upload Image"
           desc="Add an image to your prompt"
+          onClick={onUploadImage}
         />
         <MenuRow
           iconBg="rgba(255,255,255,0.06)"
+          iconBorder="rgba(255,255,255,0.08)"
           icon={
             <svg width="13" height="15" viewBox="0 0 13 15" fill="none">
               <path d="M2 1h6l4 4v9a1 1 0 01-1 1H2a1 1 0 01-1-1V2a1 1 0 011-1z" stroke="rgba(255,255,255,0.5)" strokeWidth="1.3"/>
@@ -187,6 +190,7 @@ function MainView({ setView }: { setView: (v: View) => void }) {
           }
           label="Attach File"
           desc="PDF, doc, or any media"
+          onClick={onAttachFile}
         />
       </div>
 
@@ -494,17 +498,22 @@ function PanelHeader({ title, back }: { title: string; back: () => void }) {
 function MenuRow({
   icon,
   iconBg,
+  iconBorder,
   label,
   desc,
+  onClick,
 }: {
   icon: React.ReactNode;
   iconBg: string;
+  iconBorder: string;
   label: string;
   desc: string;
+  onClick?: () => void;
 }) {
   const [hovered, setHovered] = useState(false);
   return (
     <div
+      onClick={onClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -525,7 +534,7 @@ function MenuRow({
           height: 32,
           borderRadius: 10,
           background: iconBg,
-          border: "1px solid rgba(255,255,255,0.08)",
+          border: `1px solid ${iconBorder}`,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",

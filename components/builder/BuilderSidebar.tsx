@@ -5,7 +5,7 @@ import { useEditor } from "@/lib/editor/EditorContext";
 import BuilderChat from "./BuilderChat";
 import BuilderPromptBar from "./BuilderPromptBar";
 import ContextualEditor from "./editor/ContextualEditor";
-import type { Message, AppSnapshot, SidebarMode } from "./BuilderLayout";
+import type { Message, AppSnapshot, SidebarMode, Attachment } from "./BuilderLayout";
 
 type Props = {
   messages: Message[];
@@ -16,6 +16,8 @@ type Props = {
   setSidebarMode: (mode: SidebarMode) => void;
   appHistory: AppSnapshot[];
   onRestore: (snapshot: AppSnapshot) => void;
+  attachments: Attachment[];
+  onAttachmentsChange: (a: Attachment[]) => void;
 };
 
 export default function BuilderSidebar({
@@ -27,6 +29,8 @@ export default function BuilderSidebar({
   setSidebarMode,
   appHistory,
   onRestore,
+  attachments,
+  onAttachmentsChange,
 }: Props) {
   const { selection } = useEditor();
   const [showHistory, setShowHistory] = useState(false);
@@ -128,7 +132,13 @@ export default function BuilderSidebar({
         <BuilderChat messages={messages} />
 
         {/* ── Prompt bar ── */}
-        <BuilderPromptBar value={prompt} onChange={onPromptChange} onSend={onSend} />
+        <BuilderPromptBar
+          value={prompt}
+          onChange={onPromptChange}
+          onSend={onSend}
+          attachments={attachments}
+          onAttachmentsChange={onAttachmentsChange}
+        />
 
         {/* ── History panel — smooth overlay ── */}
         {showHistory && (

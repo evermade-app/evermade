@@ -28,6 +28,16 @@ export type AppSnapshot = {
 
 export type SidebarMode = "normal" | "expanded" | "hidden";
 
+export type Attachment = {
+  id: string;
+  name: string;
+  size: number;
+  mimeType: string;
+  dataUrl: string;
+  kind: "image" | "text" | "binary";
+  textContent?: string;
+};
+
 function now() {
   return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
@@ -43,6 +53,7 @@ function BuilderLayoutInner() {
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>("normal");
   const [appHistory, setAppHistory] = useState<AppSnapshot[]>([]);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
 
   const handleSendRef = useRef<((content?: string) => Promise<void>) | null>(null);
   const autoFiredRef = useRef(false);
@@ -161,14 +172,24 @@ function BuilderLayoutInner() {
 
   // ── Main send handler ─────────────────────────────────────────────────────
   const handleSend = async (content?: string) => {
-    const text = content !== undefined ? content : prompt;
-    if (!text.trim()) return;
+    const rawText = content !== undefined ? content : prompt;
+    const activeAtts = [...attachments];
 
+    if (!rawText.trim() && activeAtts.length === 0) return;
+
+    const displayText = rawText.trim() || "Build based on my attached reference";
+
+    // User message — mention attachment filenames
+    const attSuffix = activeAtts.length > 0
+      ? `\n\n📎 ${activeAtts.length} attachment${activeAtts.length > 1 ? "s" : ""}: ${activeAtts.map((a) => a.name).join(", ")}`
+      : "";
     setMessages((prev) => [
       ...prev,
-      { id: Date.now().toString(), role: "user", content: text, timestamp: now() },
+      { id: Date.now().toString(), role: "user", content: displayText + attSuffix, timestamp: now() },
     ]);
+
     if (content === undefined) setPrompt("");
+    setAttachments([]); // clear immediately after capture
 
     const thinkingId = `thinking-${Date.now()}`;
     setMessages((prev) => [
@@ -177,15 +198,57 @@ function BuilderLayoutInner() {
     ]);
 
     if (veSelection && sleekApp) {
-      await handleVEEdit(text, thinkingId);
+      await handleVEEdit(displayText, thinkingId);
       return;
+    }
+
+    // Build enriched prompt from attachments
+    let enrichedPrompt = displayText;
+
+    if (activeAtts.length > 0) {
+      // Inline text file contents
+      const textFiles = activeAtts.filter((a) => a.kind === "text" && a.textContent);
+      if (textFiles.length > 0) {
+        enrichedPrompt += "\n\n[ATTACHED DOCUMENT CONTENT]\n" +
+          textFiles.map((f) => `--- ${f.name} ---\n${(f.textContent ?? "").slice(0, 2000)}`).join("\n\n");
+      }
+
+      // Analyze images via OpenAI vision
+      const imageAtts = activeAtts.filter((a) => a.kind === "image");
+      if (imageAtts.length > 0) {
+        try {
+          const analyzeRes = await fetch("/api/ai/analyze-attachment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              attachments: imageAtts.map((a) => ({
+                name: a.name,
+                mimeType: a.mimeType,
+                data: a.dataUrl.split(",")[1] ?? "",
+              })),
+            }),
+          });
+          if (analyzeRes.ok) {
+            const { description } = await analyzeRes.json() as { description: string };
+            if (description) enrichedPrompt += "\n\n" + description;
+          }
+        } catch { /* continue without analysis */ }
+      }
+
+      // Binary files — just name them
+      const binaryAtts = activeAtts.filter((a) => a.kind === "binary");
+      if (binaryAtts.length > 0) {
+        enrichedPrompt += `\n\n[Also attached: ${binaryAtts.map((a) => a.name).join(", ")}]`;
+      }
+
+      enrichedPrompt += `\n\nApply the visual style, color palette, and design patterns from the attached assets to every screen of the generated app.`;
     }
 
     try {
       const res = await fetch("/api/ai/sleek", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: text, appName: text.slice(0, 60) }),
+        body: JSON.stringify({ prompt: enrichedPrompt, appName: displayText.slice(0, 60) }),
       });
 
       if (!res.ok) {
@@ -280,6 +343,8 @@ function BuilderLayoutInner() {
           setSidebarMode={setSidebarMode}
           appHistory={appHistory}
           onRestore={onRestore}
+          attachments={attachments}
+          onAttachmentsChange={setAttachments}
         />
 
         {/* Floating tab to reopen sidebar when hidden */}
