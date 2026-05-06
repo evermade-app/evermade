@@ -16,14 +16,28 @@ export function saveProject(project: Project): void {
 export function loadProject(id?: string): Project | null {
   if (typeof window === "undefined") return null;
   try {
-    // If no id provided, try to infer from evermade-active-project
     const projectId = id ?? localStorage.getItem("evermade-active-project") ?? null;
     if (!projectId) return null;
+
+    // Try per-project key first (new format)
     const raw = localStorage.getItem(projectKey(projectId));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Project;
-    if (!parsed || typeof parsed !== "object" || !parsed.id || !Array.isArray(parsed.screens)) return null;
-    return parsed;
+    if (raw) {
+      const parsed = JSON.parse(raw) as Project;
+      if (parsed?.id && Array.isArray(parsed.screens)) return parsed;
+    }
+
+    // Migration fallback: old single key — use it even if id differs (best effort)
+    const legacy = localStorage.getItem("evermade-project-v1");
+    if (legacy) {
+      const parsed = JSON.parse(legacy) as Project;
+      if (parsed?.id && Array.isArray(parsed.screens)) {
+        // Migrate to per-project key so next load is fast
+        localStorage.setItem(projectKey(parsed.id), legacy);
+        return parsed;
+      }
+    }
+
+    return null;
   } catch {
     return null;
   }

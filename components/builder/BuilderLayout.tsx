@@ -32,7 +32,9 @@ function now() {
   return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-const CHAT_STORAGE_KEY = "evermade-chat-v1";
+function chatKey(projectId: string): string {
+  return `evermade-chat-${projectId}`;
+}
 
 function BuilderLayoutInner() {
   const { hydrated, setSleekApp, sleekApp, veSelection, setVeSelection, project } = useEditor();
@@ -44,35 +46,50 @@ function BuilderLayoutInner() {
 
   const handleSendRef = useRef<((content?: string) => Promise<void>) | null>(null);
   const autoFiredRef = useRef(false);
+  const chatLoadedRef = useRef(false);
 
-  // On mount: new project clears state; returning project restores chat
+  // On mount: if new project signal, clear in-memory state immediately
   useEffect(() => {
-    const pending = localStorage.getItem("evermade-pending-prompt");
-    if (pending) {
+    if (localStorage.getItem("evermade-pending-prompt")) {
       setSleekApp(null);
       setMessages([]);
       setAppHistory([]);
-      localStorage.removeItem(CHAT_STORAGE_KEY);
-    } else {
-      try {
-        const raw = localStorage.getItem(CHAT_STORAGE_KEY);
-        if (raw) {
-          const saved = JSON.parse(raw) as Message[];
-          if (Array.isArray(saved) && saved.length > 0) {
-            setMessages(saved.filter((m) => !m.isThinking));
-          }
-        }
-      } catch { /* ignore */ }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Persist chat messages
+  // Load chat after hydration — project.id is correct by then
   useEffect(() => {
+    if (!hydrated || chatLoadedRef.current) return;
+    chatLoadedRef.current = true;
+    const pending = localStorage.getItem("evermade-pending-prompt");
+    if (pending) {
+      // Clear any saved chat for this project
+      localStorage.removeItem(chatKey(project.id));
+      return;
+    }
+    try {
+      // Per-project key first, then migrate from legacy single key
+      let raw = localStorage.getItem(chatKey(project.id));
+      if (!raw) raw = localStorage.getItem("evermade-chat-v1");
+      if (raw) {
+        const saved = JSON.parse(raw) as Message[];
+        if (Array.isArray(saved) && saved.length > 0) {
+          setMessages(saved.filter((m) => !m.isThinking));
+          localStorage.setItem(chatKey(project.id), raw);
+        }
+      }
+    } catch { /* ignore */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
+
+  // Persist chat messages under per-project key
+  useEffect(() => {
+    if (!hydrated) return;
     const settled = messages.filter((m) => !m.isThinking);
     if (settled.length === 0) return;
-    try { localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(settled)); } catch { /* quota */ }
-  }, [messages]);
+    try { localStorage.setItem(chatKey(project.id), JSON.stringify(settled)); } catch { /* quota */ }
+  }, [messages, hydrated, project.id]);
 
   const resolveThinking = (thinkingId: string, content: string) => {
     setMessages((prev) =>

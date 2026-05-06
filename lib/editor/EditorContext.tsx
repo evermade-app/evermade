@@ -92,11 +92,23 @@ function saveSleekApp(projectId: string, app: SleekPreviewApp | null): void {
 function loadSleekApp(projectId: string): SleekPreviewApp | null {
   if (typeof window === "undefined") return null;
   try {
+    // Try per-project key first (new format)
     const raw = localStorage.getItem(sleekKey(projectId));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as SleekPreviewApp;
-    if (!parsed?.id || !Array.isArray(parsed.screens)) return null;
-    return parsed;
+    if (raw) {
+      const parsed = JSON.parse(raw) as SleekPreviewApp;
+      if (parsed?.id && Array.isArray(parsed.screens)) return parsed;
+    }
+    // Migration fallback: old single key
+    const legacy = localStorage.getItem("evermade-sleek-app-v1");
+    if (legacy) {
+      const parsed = JSON.parse(legacy) as SleekPreviewApp;
+      if (parsed?.id && Array.isArray(parsed.screens)) {
+        // Migrate to per-project key
+        localStorage.setItem(sleekKey(projectId), legacy);
+        return parsed;
+      }
+    }
+    return null;
   } catch {
     return null;
   }
