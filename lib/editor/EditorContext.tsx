@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { saveProject, loadProject } from "./projectPersistence";
+import { getProjects } from "@/lib/projects-store";
 import type { Project, Selection, ScreenStyle, Theme, Screen, AppComponent, NavItem } from "./project";
 import {
   FITTRACK_PROJECT,
@@ -141,16 +142,24 @@ export function EditorProvider({
   // Load persisted project and sleek app once on mount
   useEffect(() => {
     if (isPreview) return;
-    // loadProject reads evermade-active-project to know which project to load
     const savedProject = loadProject();
     if (savedProject) {
       setProjectState(savedProject);
       const savedSleek = loadSleekApp(savedProject.id);
       if (savedSleek) setSleekAppState(savedSleek);
     } else {
-      // Fallback: try active project signal for sleekApp even if no project data
+      // No saved project data found. If a specific project was requested,
+      // bootstrap a blank project with the CORRECT id so any generation
+      // gets stored under the right key — not under FITTRACK_PROJECT's id.
       const activeProjectId = localStorage.getItem("evermade-active-project");
       if (activeProjectId) {
+        const meta = getProjects().find((p) => p.id === activeProjectId);
+        const blankProject: Project = {
+          ...FITTRACK_PROJECT,
+          id: activeProjectId,
+          name: meta?.name ?? "My App",
+        };
+        setProjectState(blankProject);
         const savedSleek = loadSleekApp(activeProjectId);
         if (savedSleek) setSleekAppState(savedSleek);
       }
