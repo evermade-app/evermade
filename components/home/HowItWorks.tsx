@@ -83,7 +83,7 @@ export default function HowItWorks() {
             How We Make It Happen
           </motion.h1>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 40, maxWidth: 396, width: "100%" }}>
+          <div style={{ display: "flex", flexDirection: "row", gap: 20, width: "100%", maxWidth: 1100, flexWrap: "wrap" }}>
             {STEPS.map((step, i) => (
               <motion.div
                 key={i}
@@ -96,7 +96,8 @@ export default function HowItWorks() {
                   background: "rgba(3,0,20,0.4)", backdropFilter: "blur(60px)", WebkitBackdropFilter: "blur(60px)",
                   border: "2px solid rgba(255,255,255,0.05)", borderRadius: 30,
                   padding: "30px 15px 30px 30px",
-                  display: "flex", flexDirection: "column", gap: 80,
+                  display: "flex", flexDirection: "column", gap: 32,
+                  flex: 1, minWidth: 260,
                 }}
               >
                 <span style={{ ...glassBadge, position: "absolute", top: 45, right: 30 }}>{step.badge}</span>
