@@ -98,16 +98,24 @@ function loadSleekApp(projectId: string): SleekPreviewApp | null {
       const parsed = JSON.parse(raw) as SleekPreviewApp;
       if (parsed?.id && Array.isArray(parsed.screens)) return parsed;
     }
-    // Migration fallback: old single key
-    const legacy = localStorage.getItem("evermade-sleek-app-v1");
-    if (legacy) {
-      const parsed = JSON.parse(legacy) as SleekPreviewApp;
-      if (parsed?.id && Array.isArray(parsed.screens)) {
-        // Migrate to per-project key
-        localStorage.setItem(sleekKey(projectId), legacy);
-        return parsed;
+    // Migration fallback: only apply legacy sleekApp to the project that was
+    // last stored under evermade-project-v1 (id-matched, prevents wrong project)
+    try {
+      const legacyProj = localStorage.getItem("evermade-project-v1");
+      if (legacyProj) {
+        const legacyParsed = JSON.parse(legacyProj) as { id?: string };
+        if (legacyParsed?.id === projectId) {
+          const legacy = localStorage.getItem("evermade-sleek-app-v1");
+          if (legacy) {
+            const parsed = JSON.parse(legacy) as SleekPreviewApp;
+            if (parsed?.id && Array.isArray(parsed.screens)) {
+              localStorage.setItem(sleekKey(projectId), legacy);
+              return parsed;
+            }
+          }
+        }
       }
-    }
+    } catch { /* ignore */ }
     return null;
   } catch {
     return null;

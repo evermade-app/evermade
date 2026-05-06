@@ -26,13 +26,12 @@ export function loadProject(id?: string): Project | null {
       if (parsed?.id && Array.isArray(parsed.screens)) return parsed;
     }
 
-    // Migration fallback: old single key — use it even if id differs (best effort)
+    // Migration fallback: old single key — only use it when the stored id matches
     const legacy = localStorage.getItem("evermade-project-v1");
     if (legacy) {
       const parsed = JSON.parse(legacy) as Project;
-      if (parsed?.id && Array.isArray(parsed.screens)) {
-        // Migrate to per-project key so next load is fast
-        localStorage.setItem(projectKey(parsed.id), legacy);
+      if (parsed?.id === projectId && Array.isArray(parsed.screens)) {
+        localStorage.setItem(projectKey(projectId), legacy);
         return parsed;
       }
     }

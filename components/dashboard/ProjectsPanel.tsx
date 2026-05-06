@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { type ProjectMeta, timeAgo, getProjects } from "@/lib/projects-store";
+import { type ProjectMeta, timeAgo, getProjects, deleteProject } from "@/lib/projects-store";
 
 // ─── Template catalogue ───────────────────────────────────────────────────────
 
@@ -317,7 +317,21 @@ export default function ProjectsPanel() {
 
   const handleDelete = useCallback(async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
+    // Update UI immediately
     setProjects((prev) => prev.filter((p) => p.id !== id));
+    // Remove from localStorage — without this the project reappears on refresh
+    deleteProject(id);
+    // Clean up all per-project localStorage keys
+    try {
+      localStorage.removeItem(`evermade-project-${id}`);
+      localStorage.removeItem(`evermade-sleek-${id}`);
+      localStorage.removeItem(`evermade-chat-${id}`);
+      // If this was the active project, clear the active signal
+      if (localStorage.getItem("evermade-active-project") === id) {
+        localStorage.removeItem("evermade-active-project");
+      }
+    } catch { /* private browsing */ }
+    // Persist deletion to Supabase
     await fetch(`/api/apps/${id}`, { method: "DELETE" }).catch(console.error);
   }, []);
 
