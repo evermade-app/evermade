@@ -202,36 +202,48 @@ function BuilderLayoutInner() {
       return;
     }
 
-    // ── Image attachments on an existing app → apply design surgically ────────
-    // NEVER regenerate a whole new app just because the user uploaded a logo/image.
+    // ── Image attachments on an existing app → embed logo + apply design ─────
+    // NEVER regenerate a whole new app because the user uploaded a logo/image.
     const imageAtts = activeAtts.filter((a) => a.kind === "image");
     if (sleekApp && imageAtts.length > 0) {
       try {
-        // Step 1: analyze the image(s) to extract a design brief
-        const analyzeRes = await fetch("/api/ai/analyze-attachment", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            attachments: imageAtts.map((a) => ({
-              name: a.name,
-              mimeType: a.mimeType,
-              data: a.dataUrl.split(",")[1] ?? "",
-            })),
-          }),
-        });
+        const firstImage = imageAtts[0];
+        const logoData = firstImage.dataUrl.split(",")[1] ?? "";
+        const logoMimeType = firstImage.mimeType;
 
-        if (!analyzeRes.ok) throw new Error("Vision analysis failed");
-        const { description } = await analyzeRes.json() as { description: string };
-        if (!description) throw new Error("Empty design brief");
+        // Analyze all images to get color/style brief (used as secondary context)
+        let designBrief = "";
+        try {
+          const analyzeRes = await fetch("/api/ai/analyze-attachment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              attachments: imageAtts.map((a) => ({
+                name: a.name,
+                mimeType: a.mimeType,
+                data: a.dataUrl.split(",")[1] ?? "",
+              })),
+            }),
+          });
+          if (analyzeRes.ok) {
+            const { description } = await analyzeRes.json() as { description: string };
+            designBrief = description ?? "";
+          }
+        } catch { /* continue without brief */ }
 
-        // Step 2: apply design to each existing screen (no regeneration)
+        const userInstruction = displayText !== "Build based on my attached reference" ? displayText : "";
+
+        // Pass actual logo data so apply-design embeds it directly in the HTML
         const applyRes = await fetch("/api/ai/apply-design", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             screens: sleekApp.screens,
-            designBrief: (displayText !== "Build based on my attached reference" ? `User instruction: ${displayText}\n\n` : "") + description,
+            designBrief,
             appName: sleekApp.appName,
+            logoData,
+            logoMimeType,
+            userInstruction,
           }),
         });
 
@@ -240,13 +252,13 @@ function BuilderLayoutInner() {
 
         const updatedApp = { ...sleekApp, screens };
         setSleekApp(updatedApp);
-        pushToHistory(updatedApp, `Applied design from ${imageAtts.map((a) => a.name).join(", ")}`);
+        pushToHistory(updatedApp, `Added logo from ${firstImage.name}`);
         resolveThinking(
           thinkingId,
-          `Done — applied your design to **${screens.length} screens** ✨\n\nYour app content and structure are unchanged. Only colors, fonts, and branding were updated.`
+          `Done — your logo is now displayed across **${screens.length} screens** ✨\n\nBrand colors have also been applied. Use the version history to undo if needed.`
         );
       } catch (err) {
-        resolveThinking(thinkingId, `Could not apply design: ${err instanceof Error ? err.message : "Unknown error"}. Try describing the change in text instead.`);
+        resolveThinking(thinkingId, `Could not apply design: ${err instanceof Error ? err.message : "Unknown error"}. Try again or describe what you want in text.`);
       }
       return;
     }
