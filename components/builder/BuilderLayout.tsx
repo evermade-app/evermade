@@ -202,7 +202,56 @@ function BuilderLayoutInner() {
       return;
     }
 
-    // Build enriched prompt from attachments
+    // ── Image attachments on an existing app → apply design surgically ────────
+    // NEVER regenerate a whole new app just because the user uploaded a logo/image.
+    const imageAtts = activeAtts.filter((a) => a.kind === "image");
+    if (sleekApp && imageAtts.length > 0) {
+      try {
+        // Step 1: analyze the image(s) to extract a design brief
+        const analyzeRes = await fetch("/api/ai/analyze-attachment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            attachments: imageAtts.map((a) => ({
+              name: a.name,
+              mimeType: a.mimeType,
+              data: a.dataUrl.split(",")[1] ?? "",
+            })),
+          }),
+        });
+
+        if (!analyzeRes.ok) throw new Error("Vision analysis failed");
+        const { description } = await analyzeRes.json() as { description: string };
+        if (!description) throw new Error("Empty design brief");
+
+        // Step 2: apply design to each existing screen (no regeneration)
+        const applyRes = await fetch("/api/ai/apply-design", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            screens: sleekApp.screens,
+            designBrief: (displayText !== "Build based on my attached reference" ? `User instruction: ${displayText}\n\n` : "") + description,
+            appName: sleekApp.appName,
+          }),
+        });
+
+        if (!applyRes.ok) throw new Error("Apply design failed");
+        const { screens } = await applyRes.json() as { screens: typeof sleekApp.screens };
+
+        const updatedApp = { ...sleekApp, screens };
+        setSleekApp(updatedApp);
+        pushToHistory(updatedApp, `Applied design from ${imageAtts.map((a) => a.name).join(", ")}`);
+        resolveThinking(
+          thinkingId,
+          `Done — applied your design to **${screens.length} screens** ✨\n\nYour app content and structure are unchanged. Only colors, fonts, and branding were updated.`
+        );
+      } catch (err) {
+        resolveThinking(thinkingId, `Could not apply design: ${err instanceof Error ? err.message : "Unknown error"}. Try describing the change in text instead.`);
+      }
+      return;
+    }
+
+    // ── Build enriched prompt for full generation (no existing app, or no images) ──
     let enrichedPrompt = displayText;
 
     if (activeAtts.length > 0) {
@@ -213,8 +262,7 @@ function BuilderLayoutInner() {
           textFiles.map((f) => `--- ${f.name} ---\n${(f.textContent ?? "").slice(0, 2000)}`).join("\n\n");
       }
 
-      // Analyze images via OpenAI vision
-      const imageAtts = activeAtts.filter((a) => a.kind === "image");
+      // Analyze images via OpenAI vision (only when no existing app — first generation)
       if (imageAtts.length > 0) {
         try {
           const analyzeRes = await fetch("/api/ai/analyze-attachment", {
