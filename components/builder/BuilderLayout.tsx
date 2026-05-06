@@ -124,22 +124,32 @@ function BuilderLayoutInner() {
   };
 
   // ── Targeted element edit (visual editor) ─────────────────────────────────
-  const handleVEEdit = async (userText: string, thinkingId: string) => {
+  const handleVEEdit = async (userText: string, thinkingId: string, atts: Attachment[] = []) => {
     if (!veSelection || !sleekApp) return false;
     const screen = sleekApp.screens[veSelection.screenIndex];
     if (!screen) return false;
 
+    // Pass image attachments so the API can embed the real image
+    const imageAtts = atts.filter((a) => a.kind === "image");
+    const firstImage = imageAtts[0];
+
     try {
+      const body: Record<string, unknown> = {
+        screenHtml: screen.html,
+        screenName: veSelection.screenName,
+        elementTag: veSelection.elementTag,
+        elementText: veSelection.elementText,
+        editRequest: userText,
+      };
+      if (firstImage) {
+        body.logoData = firstImage.dataUrl.split(",")[1] ?? "";
+        body.logoMimeType = firstImage.mimeType;
+      }
+
       const res = await fetch("/api/ai/edit-element", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          screenHtml: screen.html,
-          screenName: veSelection.screenName,
-          elementTag: veSelection.elementTag,
-          elementText: veSelection.elementText,
-          editRequest: userText,
-        }),
+        body: JSON.stringify(body),
       });
 
       if (!res.ok) {
@@ -198,7 +208,7 @@ function BuilderLayoutInner() {
     ]);
 
     if (veSelection && sleekApp) {
-      await handleVEEdit(displayText, thinkingId);
+      await handleVEEdit(displayText, thinkingId, activeAtts);
       return;
     }
 
