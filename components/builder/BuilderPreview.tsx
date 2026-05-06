@@ -223,26 +223,6 @@ function SleekCanvas({ onSend }: { onSend?: (text: string) => void }) {
         )}
       </div>
 
-      {/* App badge */}
-      {sleekApp && (
-        <div style={{
-          position: "absolute", top: 16, left: "50%", transform: "translateX(-50%)",
-          zIndex: 10, display: "flex", alignItems: "center", gap: 8,
-          background: "rgba(14,14,22,0.88)", border: "1px solid rgba(255,255,255,0.08)",
-          borderRadius: 8, backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
-          padding: "5px 12px",
-        }}>
-          <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#7c5cfc", boxShadow: "0 0 8px #7c5cfc" }} />
-          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.55)", fontWeight: 500 }}>{sleekApp.appName}</span>
-          <div style={{ width: 1, height: 12, background: "rgba(255,255,255,0.1)" }} />
-          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.3)" }}>{sleekApp.screens.length} screens</span>
-          <button
-            onClick={() => setSleekApp(null)}
-            style={{ background: "none", border: "none", color: "rgba(255,255,255,0.2)", cursor: "pointer", fontSize: 13, padding: "0 0 0 4px", display: "flex", alignItems: "center", lineHeight: 1 }}
-            title="Clear app"
-          >×</button>
-        </div>
-      )}
     </div>
   );
 }
