@@ -171,6 +171,15 @@ body {
   box-sizing: border-box;
 }
 
+@keyframes ticker-left {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes ticker-right {
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0); }
+}
+
 button,
 input,
 textarea {
