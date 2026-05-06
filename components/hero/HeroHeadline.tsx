@@ -16,7 +16,7 @@ export default function HeroHeadline({ firstName }: HeroHeadlineProps) {
         >
           Hey {firstName},
           <br />
-          ready to launch for real?
+          ready to make money?
         </h1>
       </div>
     );
