@@ -23,11 +23,11 @@ export default function VideoBackground() {
         playsInline
         loop
         preload="auto"
-        className="fixed inset-0 z-0 w-full h-full object-cover pointer-events-none"
+        className="absolute inset-0 z-0 w-full h-full object-cover pointer-events-none"
         style={{ objectPosition: "center center" }}
       />
       <div
-        className="fixed inset-0 z-[1] pointer-events-none"
+        className="absolute inset-0 z-[1] pointer-events-none"
         style={{
           background:
             "linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.25) 100%)",
