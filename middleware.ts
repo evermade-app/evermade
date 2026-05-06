@@ -6,6 +6,18 @@ const PROTECTED = ["/dashboard", "/builder", "/new-project", "/library"];
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Redirect logged-in users away from the landing page straight to the dashboard
+  if (pathname === "/") {
+    const token = await getToken({ req: request });
+    if (token) {
+      const dashUrl = request.nextUrl.clone();
+      dashUrl.pathname = "/dashboard";
+      dashUrl.search = "";
+      return NextResponse.redirect(dashUrl);
+    }
+    return NextResponse.next();
+  }
+
   const isProtected = PROTECTED.some(
     (p) => pathname === p || pathname.startsWith(p + "/")
   );
@@ -22,6 +34,7 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/",
     "/dashboard/:path*",
     "/builder/:path*",
     "/new-project/:path*",
