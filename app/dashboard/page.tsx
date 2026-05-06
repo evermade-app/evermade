@@ -51,7 +51,7 @@ export default function DashboardPage() {
       {/* ── Collapsible left sidebar (overlay, doesn't push hero) ── */}
       <DashboardSidebar />
 
-      <div style={{ background: "#050509" }}>
+      <div>
         {/* ── Hero ── */}
         <div className="relative min-h-screen overflow-hidden">
           <VideoBackground />
