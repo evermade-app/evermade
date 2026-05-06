@@ -54,7 +54,7 @@ export default function DashboardPage() {
       <div>
         {/* ── Hero ── */}
         <div className="relative min-h-screen overflow-hidden">
-          <VideoBackground />
+          <VideoBackground fixed />
 
           <div className="relative z-10 flex min-h-screen flex-col">
             <DashboardHeroNav />

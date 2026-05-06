@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 
-export default function VideoBackground() {
+export default function VideoBackground({ fixed }: { fixed?: boolean } = {}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isMuted, setIsMuted] = useState(true);
 
@@ -12,6 +12,8 @@ export default function VideoBackground() {
       setIsMuted(videoRef.current.muted);
     }
   };
+
+  const pos = fixed ? "fixed" : "absolute";
 
   return (
     <>
@@ -23,11 +25,11 @@ export default function VideoBackground() {
         playsInline
         loop
         preload="auto"
-        className="absolute inset-0 z-0 w-full h-full object-cover pointer-events-none"
+        className={`${pos} inset-0 z-0 w-full h-full object-cover pointer-events-none`}
         style={{ objectPosition: "center center" }}
       />
       <div
-        className="absolute inset-0 z-[1] pointer-events-none"
+        className={`${pos} inset-0 z-[1] pointer-events-none`}
         style={{
           background:
             "linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.25) 100%)",
