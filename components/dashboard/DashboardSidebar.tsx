@@ -100,12 +100,6 @@ const TemplateIcon = () => (
   </svg>
 );
 
-const ExploreIcon = () => (
-  <svg width="17" height="17" viewBox="0 0 15 15" fill="none">
-    <circle cx="7.5" cy="7.5" r="6" stroke="currentColor" strokeWidth="1.4" />
-    <path d="M9.5 5.5L8 8 5 9.5l1.5-3 3-1.5z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
-  </svg>
-);
 
 const BookIcon = () => (
   <svg width="17" height="17" viewBox="0 0 15 15" fill="none">
@@ -557,8 +551,6 @@ export default function DashboardSidebar() {
             <div style={{ width: 28, height: 1, background: "rgba(255,255,255,0.06)", margin: "4px 0" }} />
 
             <RailIcon icon={<TemplateIcon />} title="Templates" onClick={() => router.push("/new-project")} />
-            <RailIcon icon={<ExploreIcon />} title="Explore" onClick={() => router.push("/library")} />
-            <RailIcon icon={<BookIcon />} title="Docs" onClick={() => {}} />
             <RailIcon icon={<DiscordIcon />} title="Community" onClick={() => {}} />
           </div>
 
@@ -729,9 +721,16 @@ export default function DashboardSidebar() {
           <Divider />
           <SidebarSection label="Resources" />
           <SidebarNavItem icon={<TemplateIcon />} label="Templates" onClick={() => router.push("/new-project")} />
-          <SidebarNavItem icon={<ExploreIcon />} label="Explore" onClick={() => router.push("/library")} />
-          <SidebarNavItem icon={<BookIcon />} label="Docs" onClick={() => {}} />
           <SidebarNavItem icon={<DiscordIcon />} label="Community" onClick={() => {}} />
+
+          {/* Sidebar banner */}
+          <div style={{ margin: "10px 8px 0", borderRadius: 12, overflow: "hidden", flexShrink: 0 }}>
+            <img
+              src="/sidebar-banner.png"
+              alt="Evermade"
+              style={{ width: "100%", display: "block", objectFit: "cover", borderRadius: 12 }}
+            />
+          </div>
 
           <div style={{ height: 12 }} />
         </div>
