@@ -35,6 +35,9 @@ function buildPackageJson(appName: string, functional: boolean) {
     },
     dependencies: {
       expo: "~52.0.0",
+      "expo-asset": "~10.0.10",
+      "expo-constants": "~17.0.3",
+      "expo-font": "~13.0.2",
       "expo-status-bar": "~2.0.1",
       react: "18.3.1",
       "react-native": "0.76.5",
