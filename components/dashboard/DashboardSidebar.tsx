@@ -115,12 +115,6 @@ const BookIcon = () => (
   </svg>
 );
 
-const PersonIcon = () => (
-  <svg width="17" height="17" viewBox="0 0 15 15" fill="none">
-    <circle cx="7.5" cy="5" r="3" stroke="currentColor" strokeWidth="1.4" />
-    <path d="M2 13.5c0-2.8 2.5-5 5.5-5s5.5 2.2 5.5 5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-  </svg>
-);
 
 const CrownIcon = () => (
   <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
@@ -565,7 +559,7 @@ export default function DashboardSidebar() {
             <RailIcon icon={<TemplateIcon />} title="Templates" onClick={() => router.push("/new-project")} />
             <RailIcon icon={<ExploreIcon />} title="Explore" onClick={() => router.push("/library")} />
             <RailIcon icon={<BookIcon />} title="Docs" onClick={() => {}} />
-            <RailIcon icon={<PersonIcon />} title="Account" onClick={() => {}} />
+            <RailIcon icon={<DiscordIcon />} title="Community" onClick={() => {}} />
           </div>
 
           {/* Bottom icons */}
@@ -737,7 +731,7 @@ export default function DashboardSidebar() {
           <SidebarNavItem icon={<TemplateIcon />} label="Templates" onClick={() => router.push("/new-project")} />
           <SidebarNavItem icon={<ExploreIcon />} label="Explore" onClick={() => router.push("/library")} />
           <SidebarNavItem icon={<BookIcon />} label="Docs" onClick={() => {}} />
-          <SidebarNavItem icon={<PersonIcon />} label="Account" onClick={() => {}} />
+          <SidebarNavItem icon={<DiscordIcon />} label="Community" onClick={() => {}} />
 
           <div style={{ height: 12 }} />
         </div>
