@@ -22,7 +22,7 @@ async function getUserPlan(userId: string): Promise<PlanId> {
 
 // ── GET /api/apps/[id]/export — download ZIP using cached app data ─────────────
 export async function GET(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -111,16 +111,17 @@ export async function POST(
     }
 
     const body = await req.json();
-    const { appName, screens } = body as {
+    const { appName, screens, navigation } = body as {
       appName: string;
       screens: Array<{ screenName: string; componentName: string; code: string }>;
+      navigation?: { appTsx: string; navigatorTsx: string };
     };
 
     if (!appName || !Array.isArray(screens) || screens.length === 0) {
       return NextResponse.json({ error: "appName and screens are required" }, { status: 400 });
     }
 
-    const zip = await assembleExpoZip({ appName, screens, screenshots: [] });
+    const zip = await assembleExpoZip({ appName, screens, screenshots: [], navigation });
     const filename = `${appName.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase()}-expo.zip`;
 
     return new NextResponse(new Uint8Array(zip), {

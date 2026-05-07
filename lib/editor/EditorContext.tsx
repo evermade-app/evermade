@@ -27,6 +27,13 @@ export interface SleekPreviewScreen {
   name: string;
   html: string;
   screenshotUrl?: string;
+  rnCode?: string;
+  componentName?: string;
+}
+
+export interface NavigationBundle {
+  appTsx: string;
+  navigatorTsx: string;
 }
 
 export interface SleekPreviewApp {
@@ -34,6 +41,8 @@ export interface SleekPreviewApp {
   appName: string;
   screens: SleekPreviewScreen[];
   activeIndex: number;
+  isFunctional?: boolean;
+  navigation?: NavigationBundle;
 }
 
 export interface VESelection {

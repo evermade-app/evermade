@@ -132,8 +132,55 @@ export default function BuilderTopBar() {
 
   const handleExport = async () => {
     if (exporting !== "idle") return;
-    setExporting("generating");
     setExportError(null);
+
+    // ── Functional export: use pre-generated RN code + navigation ─────────────
+    if (sleekApp?.isFunctional && sleekApp.screens.length > 0) {
+      setExporting("packaging");
+      try {
+        const screens = sleekApp.screens.map((s) => ({
+          screenName: s.name,
+          componentName: s.componentName ?? s.name.replace(/[^a-zA-Z0-9 ]/g, "").trim().split(/\s+/).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join("") + "Screen",
+          code: s.rnCode ?? `import React from "react";\nimport { View, Text } from "react-native";\nexport default function ${s.name}() { return <View><Text>${s.name}</Text></View>; }`,
+        }));
+
+        const zipRes = await fetch(`/api/apps/${project.id}/export`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            appName: sleekApp.appName,
+            screens,
+            navigation: sleekApp.navigation,
+          }),
+        });
+
+        if (zipRes.status === 403) {
+          const data = await zipRes.json() as { message?: string; upgradeUrl?: string };
+          setExportError({ message: data.message ?? "Upgrade to export", upgradeUrl: data.upgradeUrl });
+          return;
+        }
+        if (!zipRes.ok) throw new Error(await zipRes.text());
+
+        const blob = await zipRes.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${sleekApp.appName.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase()}-expo.zip`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error("Export failed:", err);
+        setExportError({ message: "Export failed. Please try again." });
+      } finally {
+        setExporting("idle");
+      }
+      return;
+    }
+
+    // ── Legacy export: re-generate RN code on the fly ─────────────────────────
+    setExporting("generating");
     try {
       const genRes = await fetch("/api/generate", {
         method: "POST",

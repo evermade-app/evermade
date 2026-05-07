@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { useEditor } from "@/lib/editor/EditorContext";
+import type { SleekPreviewApp, SleekPreviewScreen } from "@/lib/editor/EditorContext";
 
 // ── Real QR code via qrcode package ───────────────────────────────────────────
 function RealQRCode({ url }: { url: string }) {
@@ -92,18 +93,334 @@ function FakeQRCode() {
   );
 }
 
+// ── "Make it functional" section ──────────────────────────────────────────────
+type FxState =
+  | { status: "idle" }
+  | { status: "converting"; current: number; total: number; currentName: string }
+  | { status: "navigating" }
+  | { status: "done" }
+  | { status: "error"; message: string };
+
+type SSEEvent =
+  | { type: "progress"; step: "screen"; index: number; total: number; name: string }
+  | { type: "progress"; step: "navigation"; message?: string }
+  | { type: "screen_done"; index: number; id: string; componentName: string; rnCode: string }
+  | { type: "navigation_done"; appTsx: string; navigatorTsx: string }
+  | { type: "done" }
+  | { type: "error"; message: string };
+
+function FunctionalizeSection({ sleekApp, onDone }: {
+  sleekApp: SleekPreviewApp;
+  onDone: (updatedApp: SleekPreviewApp) => void;
+}) {
+  const [fxState, setFxState] = useState<FxState>({ status: "idle" });
+  const abortRef = useRef<AbortController | null>(null);
+
+  const handleFunctionalize = useCallback(async () => {
+    if (fxState.status !== "idle" && fxState.status !== "error") return;
+
+    const abort = new AbortController();
+    abortRef.current = abort;
+
+    setFxState({ status: "converting", current: 0, total: sleekApp.screens.length, currentName: sleekApp.screens[0]?.name ?? "" });
+
+    const updatedScreens: SleekPreviewScreen[] = sleekApp.screens.map((s) => ({ ...s }));
+    let navBundle: { appTsx: string; navigatorTsx: string } | null = null;
+
+    try {
+      const res = await fetch("/api/ai/functionalize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          appName: sleekApp.appName,
+          prompt: sleekApp.appName,
+          screens: sleekApp.screens.map((s) => ({
+            id: s.id,
+            name: s.name,
+            html: s.html,
+            screenshotUrl: s.screenshotUrl,
+          })),
+        }),
+        signal: abort.signal,
+      });
+
+      if (!res.ok || !res.body) {
+        const err = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(err.error ?? `HTTP ${res.status}`);
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() ?? "";
+
+        for (const part of parts) {
+          const line = part.trim();
+          if (!line.startsWith("data: ")) continue;
+          let event: SSEEvent;
+          try {
+            event = JSON.parse(line.slice(6)) as SSEEvent;
+          } catch {
+            continue;
+          }
+
+          if (event.type === "progress" && event.step === "screen") {
+            setFxState({
+              status: "converting",
+              current: event.index + 1,
+              total: event.total,
+              currentName: event.name,
+            });
+          } else if (event.type === "screen_done") {
+            updatedScreens[event.index] = {
+              ...updatedScreens[event.index],
+              componentName: event.componentName,
+              rnCode: event.rnCode,
+            };
+          } else if (event.type === "progress" && event.step === "navigation") {
+            setFxState({ status: "navigating" });
+          } else if (event.type === "navigation_done") {
+            navBundle = { appTsx: event.appTsx, navigatorTsx: event.navigatorTsx };
+          } else if (event.type === "done") {
+            setFxState({ status: "done" });
+            onDone({
+              ...sleekApp,
+              screens: updatedScreens,
+              navigation: navBundle ?? undefined,
+              isFunctional: true,
+            });
+          } else if (event.type === "error") {
+            throw new Error(event.message);
+          }
+        }
+      }
+    } catch (err) {
+      if ((err as Error).name === "AbortError") return;
+      setFxState({ status: "error", message: err instanceof Error ? err.message : "Unknown error" });
+    }
+  }, [sleekApp, fxState.status, onDone]);
+
+  useEffect(() => () => { abortRef.current?.abort(); }, []);
+
+  if (sleekApp.isFunctional || fxState.status === "done") {
+    return (
+      <div style={{
+        borderRadius: 14,
+        border: "1px solid rgba(52,211,153,0.3)",
+        background: "rgba(52,211,153,0.06)",
+        padding: "11px 13px",
+        display: "flex",
+        alignItems: "center",
+        gap: 9,
+        flexShrink: 0,
+      }}>
+        <div style={{
+          width: 22, height: 22, borderRadius: 7,
+          background: "rgba(52,211,153,0.18)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          flexShrink: 0,
+        }}>
+          <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="#34d399" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="1.5 6 4.5 9 10.5 3" />
+          </svg>
+        </div>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#34d399", marginBottom: 1 }}>Functional app ready</div>
+          <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>RN code + navigation generated</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (fxState.status === "converting" || fxState.status === "navigating") {
+    const isDone = fxState.status === "navigating";
+    const pct = fxState.status === "converting"
+      ? Math.round((fxState.current / fxState.total) * 75)
+      : 90;
+
+    return (
+      <div style={{
+        borderRadius: 14,
+        border: "1px solid rgba(204,255,0,0.2)",
+        background: "rgba(204,255,0,0.04)",
+        padding: "13px",
+        flexShrink: 0,
+      }}>
+        <style>{`@keyframes evFxPulse{0%,100%{opacity:1}50%{opacity:0.5}}`}</style>
+
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "#CCFF00" }}>Making it functional…</span>
+            <span style={{ fontSize: 10, color: "rgba(255,255,255,0.35)" }}>{pct}%</span>
+          </div>
+
+          {/* Progress bar */}
+          <div style={{ height: 3, borderRadius: 2, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+            <div style={{
+              height: "100%",
+              width: `${pct}%`,
+              borderRadius: 2,
+              background: "linear-gradient(90deg, #CCFF00, #7aff00)",
+              transition: "width 0.4s ease",
+              boxShadow: "0 0 8px rgba(204,255,0,0.5)",
+            }} />
+          </div>
+        </div>
+
+        {/* Step indicators */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+          <StepRow
+            label={fxState.status === "converting"
+              ? `Converting screen ${fxState.current}/${fxState.total}: ${fxState.currentName}`
+              : `Converted ${fxState.status === "navigating" ? "all" : ""} screens`}
+            done={isDone}
+            active={!isDone}
+          />
+          <StepRow
+            label="Generating navigation…"
+            done={false}
+            active={isDone}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  const isError = fxState.status === "error";
+
+  return (
+    <div style={{
+      borderRadius: 14,
+      overflow: "hidden",
+      border: `1px solid ${isError ? "rgba(239,68,68,0.3)" : "rgba(204,255,0,0.3)"}`,
+      background: isError ? "rgba(239,68,68,0.05)" : "rgba(204,255,0,0.04)",
+      boxShadow: isError ? "none" : "0 0 20px rgba(204,255,0,0.06)",
+      flexShrink: 0,
+    }}>
+      <div style={{
+        height: 1.5,
+        background: isError
+          ? "linear-gradient(90deg, rgba(239,68,68,0.8) 0%, transparent 100%)"
+          : "linear-gradient(90deg, rgba(204,255,0,0.9) 0%, rgba(124,255,0,0.5) 60%, transparent 100%)",
+        boxShadow: isError ? "none" : "0 0 8px rgba(204,255,0,0.4)",
+      }} />
+
+      <div style={{ padding: "12px 13px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 8 }}>
+          <div style={{
+            width: 28, height: 28, borderRadius: 9,
+            background: isError
+              ? "rgba(239,68,68,0.15)"
+              : "linear-gradient(135deg, rgba(204,255,0,0.25) 0%, rgba(124,255,0,0.12) 100%)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            flexShrink: 0,
+            boxShadow: isError ? "none" : "0 2px 8px rgba(204,255,0,0.2)",
+          }}>
+            {isError ? (
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="rgba(239,68,68,0.9)" strokeWidth="2" strokeLinecap="round">
+                <line x1="2" y1="2" x2="10" y2="10" /><line x1="10" y1="2" x2="2" y2="10" />
+              </svg>
+            ) : (
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#CCFF00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+              </svg>
+            )}
+          </div>
+          <div>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: isError ? "rgba(239,68,68,0.9)" : "#CCFF00", letterSpacing: -0.1, marginBottom: 1 }}>
+              {isError ? "Failed — try again" : "Make it functional"}
+            </div>
+            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.28)" }}>
+              {isError ? fxState.message.slice(0, 60) : "React Native code + navigation"}
+            </div>
+          </div>
+        </div>
+
+        {!isError && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 10 }}>
+            {["Convert screens → React Native", "Generate Stack + Tab navigation"].map((step) => (
+              <div key={step} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ width: 3, height: 3, borderRadius: "50%", background: "rgba(204,255,0,0.4)", flexShrink: 0 }} />
+                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>{step}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={handleFunctionalize}
+          style={{
+            width: "100%",
+            padding: "9px 0",
+            borderRadius: 9,
+            border: `1px solid ${isError ? "rgba(239,68,68,0.4)" : "rgba(204,255,0,0.5)"}`,
+            background: isError
+              ? "rgba(239,68,68,0.08)"
+              : "linear-gradient(135deg, rgba(204,255,0,0.18) 0%, rgba(124,255,0,0.08) 100%)",
+            color: isError ? "rgba(239,68,68,0.85)" : "#CCFF00",
+            fontSize: 12.5,
+            fontWeight: 700,
+            cursor: "pointer",
+            letterSpacing: 0.1,
+            boxShadow: isError ? "none" : "0 0 14px rgba(204,255,0,0.12)",
+            fontFamily: "inherit",
+            transition: "all 0.15s ease",
+          }}
+        >
+          {isError ? "Retry →" : "Make it functional →"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function StepRow({ label, done, active }: { label: string; done: boolean; active: boolean }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+      <div style={{
+        width: 14, height: 14, borderRadius: "50%", flexShrink: 0,
+        border: done ? "none" : `1.5px solid ${active ? "#CCFF00" : "rgba(255,255,255,0.15)"}`,
+        background: done ? "rgba(52,211,153,0.3)" : "transparent",
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}>
+        {done ? (
+          <svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="#34d399" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="1 4 3 6 7 2" />
+          </svg>
+        ) : active ? (
+          <div style={{
+            width: 5, height: 5, borderRadius: "50%",
+            background: "#CCFF00",
+            animation: "evFxPulse 1.2s ease-in-out infinite",
+          }} />
+        ) : null}
+      </div>
+      <span style={{ fontSize: 10.5, color: active ? "rgba(204,255,0,0.85)" : "rgba(255,255,255,0.3)", lineHeight: 1.4 }}>
+        {label}
+      </span>
+    </div>
+  );
+}
+
+// ── Main QR Panel ─────────────────────────────────────────────────────────────
 export default function QRPanel() {
-  const { project } = useEditor();
+  const { project, sleekApp, setSleekApp } = useEditor();
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const uploadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Build preview URL using NEXT_PUBLIC_APP_URL or fall back to current origin
   useEffect(() => {
     const base = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin;
     setPreviewUrl(`${base}/preview/${project.id}`);
   }, [project.id]);
 
-  // Upload project to server (debounced 500 ms) whenever project changes
   useEffect(() => {
     if (uploadTimerRef.current) clearTimeout(uploadTimerRef.current);
     uploadTimerRef.current = setTimeout(() => {
@@ -117,6 +434,12 @@ export default function QRPanel() {
       if (uploadTimerRef.current) clearTimeout(uploadTimerRef.current);
     };
   }, [project]);
+
+  const handleFunctionalizeDone = useCallback((updatedApp: SleekPreviewApp) => {
+    setSleekApp(updatedApp);
+  }, [setSleekApp]);
+
+  const hasScreens = sleekApp && sleekApp.screens.length > 0;
 
   return (
     <div
@@ -138,11 +461,10 @@ export default function QRPanel() {
         fontFamily: "-apple-system, BlinkMacSystemFont, 'Geist', 'SF Pro Text', sans-serif",
       }}
     >
-      {/* ── TIER 1: QR card with rainbow shimmer border ── */}
+      {/* ── TIER 1: QR card ── */}
       <div className="evermade-shimmer-shell" style={{ borderRadius: 20, flexShrink: 0 }}>
         <div className="evermade-shimmer-content" style={{ padding: "16px 14px 14px" }}>
 
-          {/* Title */}
           <div style={{ marginBottom: 12 }}>
             <div style={{ fontSize: 13.5, fontWeight: 700, color: "rgba(255,255,255,0.88)", letterSpacing: -0.2, marginBottom: 2 }}>
               Test on your device
@@ -152,7 +474,6 @@ export default function QRPanel() {
             </div>
           </div>
 
-          {/* QR code */}
           <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
             <div style={{
               padding: 10,
@@ -164,36 +485,23 @@ export default function QRPanel() {
             </div>
           </div>
 
-          {/* URL pill */}
           {previewUrl && (
             <div style={{
               marginBottom: 10,
               display: "flex", alignItems: "center", justifyContent: "center",
-              gap: 5,
-              padding: "4px 10px",
-              borderRadius: 20,
-              background: "rgba(79,142,255,0.07)",
-              border: "1px solid rgba(79,142,255,0.15)",
+              gap: 5, padding: "4px 10px", borderRadius: 20,
+              background: "rgba(79,142,255,0.07)", border: "1px solid rgba(79,142,255,0.15)",
             }}>
-              <div style={{
-                width: 4, height: 4, borderRadius: "50%",
-                background: "#4f8eff", boxShadow: "0 0 6px rgba(79,142,255,0.9)", flexShrink: 0,
-              }} />
-              <span style={{ fontSize: 9.5, color: "rgba(179,210,255,0.6)", fontFamily: "monospace", letterSpacing: 0 }}>
+              <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#4f8eff", boxShadow: "0 0 6px rgba(79,142,255,0.9)", flexShrink: 0 }} />
+              <span style={{ fontSize: 9.5, color: "rgba(179,210,255,0.6)", fontFamily: "monospace" }}>
                 {previewUrl}
               </span>
             </div>
           )}
 
-          {/* Steps */}
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-              <div style={{
-                width: 26, height: 26, borderRadius: 8,
-                background: "rgba(255,255,255,0.06)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}>
+              <div style={{ width: 26, height: 26, borderRadius: 8, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
                   <rect x="2" y="1" width="10" height="12" rx="2.5" stroke="rgba(255,255,255,0.55)" strokeWidth="1.2" />
                   <circle cx="7" cy="11" r="0.8" fill="rgba(255,255,255,0.4)" />
@@ -208,12 +516,7 @@ export default function QRPanel() {
             </svg>
 
             <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-              <div style={{
-                width: 26, height: 26, borderRadius: 8,
-                background: "rgba(124,92,252,0.1)",
-                border: "1px solid rgba(124,92,252,0.2)",
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}>
+              <div style={{ width: 26, height: 26, borderRadius: 8, background: "rgba(124,92,252,0.1)", border: "1px solid rgba(124,92,252,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
                   <rect x="1" y="1" width="5" height="5" rx="1" stroke="rgba(124,92,252,0.85)" strokeWidth="1.2" />
                   <rect x="8" y="1" width="5" height="5" rx="1" stroke="rgba(124,92,252,0.85)" strokeWidth="1.2" />
@@ -227,53 +530,39 @@ export default function QRPanel() {
         </div>
       </div>
 
-      {/* ── TIER 2: Guidance ── */}
+      {/* ── TIER 2: Make it functional (shown when screens exist) ── */}
+      {hasScreens && (
+        <FunctionalizeSection sleekApp={sleekApp} onDone={handleFunctionalizeDone} />
+      )}
+
+      {/* ── TIER 3: Guidance ── */}
       <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "0 4px", flexShrink: 0 }}>
         {[
           "Browser preview is approximate — native device shows true performance.",
           "Hot-reload active: changes appear instantly on scan.",
         ].map((text, i) => (
           <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-            <div style={{
-              width: 4, height: 4, borderRadius: "50%",
-              background: "rgba(79,142,255,0.3)", flexShrink: 0, marginTop: 5,
-            }} />
-            <span style={{ fontSize: 10.5, color: "rgba(255,255,255,0.26)", lineHeight: 1.6 }}>
-              {text}
-            </span>
+            <div style={{ width: 4, height: 4, borderRadius: "50%", background: "rgba(79,142,255,0.3)", flexShrink: 0, marginTop: 5 }} />
+            <span style={{ fontSize: 10.5, color: "rgba(255,255,255,0.26)", lineHeight: 1.6 }}>{text}</span>
           </div>
         ))}
       </div>
 
-      {/* ── TIER 3: Deploy card ── */}
+      {/* ── TIER 4: Deploy card ── */}
       <div style={{
-        borderRadius: 16,
-        overflow: "hidden",
+        borderRadius: 16, overflow: "hidden",
         border: "1px solid rgba(79,142,255,0.22)",
         background: "rgba(79,142,255,0.05)",
         boxShadow: "0 0 30px rgba(79,142,255,0.08), inset 0 1px 0 rgba(255,255,255,0.04)",
         flexShrink: 0,
       }}>
-        {/* Gradient top line */}
-        <div style={{
-          height: 1.5,
-          background: "linear-gradient(90deg, rgba(79,142,255,0.95) 0%, rgba(124,92,252,0.7) 60%, transparent 100%)",
-          boxShadow: "0 0 10px rgba(79,142,255,0.5)",
-        }} />
+        <div style={{ height: 1.5, background: "linear-gradient(90deg, rgba(79,142,255,0.95) 0%, rgba(124,92,252,0.7) 60%, transparent 100%)", boxShadow: "0 0 10px rgba(79,142,255,0.5)" }} />
 
         <div style={{ padding: "13px 14px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-            <div style={{
-              width: 32, height: 32, borderRadius: 10,
-              background: "linear-gradient(135deg, #7c5cfc 0%, #4878ff 100%)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 15, flexShrink: 0,
-              boxShadow: "0 4px 12px rgba(124,92,252,0.4)",
-            }}>🚀</div>
+            <div style={{ width: 32, height: 32, borderRadius: 10, background: "linear-gradient(135deg, #7c5cfc 0%, #4878ff 100%)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0, boxShadow: "0 4px 12px rgba(124,92,252,0.4)" }}>🚀</div>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.88)", letterSpacing: -0.1, marginBottom: 1 }}>
-                Ready to ship?
-              </div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.88)", letterSpacing: -0.1, marginBottom: 1 }}>Ready to ship?</div>
               <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>App Store · Google Play</div>
             </div>
           </div>
@@ -282,93 +571,32 @@ export default function QRPanel() {
             Submit directly to both stores — no Xcode or Android Studio required.
           </p>
 
-          <button type="button" style={{
-            width: "100%",
-            padding: "9px 0",
-            borderRadius: 10,
-            border: "1px solid rgba(79,142,255,0.35)",
-            background: "linear-gradient(135deg, rgba(79,142,255,0.22) 0%, rgba(124,92,252,0.12) 100%)",
-            color: "rgba(255,255,255,0.9)",
-            fontSize: 12,
-            fontWeight: 650,
-            cursor: "pointer",
-            letterSpacing: 0.1,
-            boxShadow: "0 0 18px rgba(79,142,255,0.18)",
-            fontFamily: "inherit",
-          }}>
+          <button type="button" style={{ width: "100%", padding: "9px 0", borderRadius: 10, border: "1px solid rgba(79,142,255,0.35)", background: "linear-gradient(135deg, rgba(79,142,255,0.22) 0%, rgba(124,92,252,0.12) 100%)", color: "rgba(255,255,255,0.9)", fontSize: 12, fontWeight: 650, cursor: "pointer", letterSpacing: 0.1, boxShadow: "0 0 18px rgba(79,142,255,0.18)", fontFamily: "inherit" }}>
             Publish now →
           </button>
 
-          {/* Store badges */}
           <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-            {/* App Store */}
-            <div style={{
-              flex: 1,
-              display: "flex", alignItems: "center", gap: 7,
-              padding: "7px 10px",
-              borderRadius: 9,
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              backdropFilter: "blur(16px)",
-              WebkitBackdropFilter: "blur(16px)",
-              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)",
-            }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="rgba(255,255,255,0.85)">
-                <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
-              </svg>
-              <div>
-                <div style={{ fontSize: 8, color: "rgba(255,255,255,0.4)", lineHeight: 1, marginBottom: 1 }}>Download on</div>
-                <div style={{ fontSize: 10.5, fontWeight: 600, color: "rgba(255,255,255,0.82)", lineHeight: 1, letterSpacing: -0.1 }}>App Store</div>
+            {[
+              { icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="rgba(255,255,255,0.85)"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>, label: "App Store", sub: "Download on" },
+              { icon: <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M3.18 23.76a2 2 0 0 0 2.14-.22l12.1-6.92L14 13l-10.82 10.76z" fill="rgba(255,255,255,0.5)"/><path d="M22.23 9.62a2 2 0 0 0 0 4.76l-.01-.01-2.84-1.63-2.84-1.63 2.85-1.63 2.84-1.62v.13z" fill="rgba(255,255,255,0.7)"/><path d="M3.18.24A2 2 0 0 0 2 2.03v19.94a2 2 0 0 0 1.18 1.79L14 13 3.18.24z" fill="rgba(255,255,255,0.85)"/><path d="M17.42 16.14L5.32 23.06a2 2 0 0 0 2.1-.1L19.38 15.5l-1.96.64z" fill="rgba(255,255,255,0.6)"/><path d="M17.42 7.86l1.96.64L7.42 1.04a2 2 0 0 0-2.1-.1l12.1 6.92z" fill="rgba(255,255,255,0.6)"/></svg>, label: "Google Play", sub: "Get it on" },
+            ].map(({ icon, label, sub }) => (
+              <div key={label} style={{ flex: 1, display: "flex", alignItems: "center", gap: 7, padding: "7px 10px", borderRadius: 9, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)" }}>
+                {icon}
+                <div>
+                  <div style={{ fontSize: 8, color: "rgba(255,255,255,0.4)", lineHeight: 1, marginBottom: 1 }}>{sub}</div>
+                  <div style={{ fontSize: 10.5, fontWeight: 600, color: "rgba(255,255,255,0.82)", lineHeight: 1, letterSpacing: -0.1 }}>{label}</div>
+                </div>
               </div>
-            </div>
-
-            {/* Google Play */}
-            <div style={{
-              flex: 1,
-              display: "flex", alignItems: "center", gap: 7,
-              padding: "7px 10px",
-              borderRadius: 9,
-              background: "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              backdropFilter: "blur(16px)",
-              WebkitBackdropFilter: "blur(16px)",
-              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.08)",
-            }}>
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
-                <path d="M3.18 23.76a2 2 0 0 0 2.14-.22l12.1-6.92L14 13l-10.82 10.76z" fill="rgba(255,255,255,0.5)"/>
-                <path d="M22.23 9.62a2 2 0 0 0 0 4.76l-.01-.01-2.84-1.63-2.84-1.63 2.85-1.63 2.84-1.62v.13z" fill="rgba(255,255,255,0.7)"/>
-                <path d="M3.18.24A2 2 0 0 0 2 2.03v19.94a2 2 0 0 0 1.18 1.79L14 13 3.18.24z" fill="rgba(255,255,255,0.85)"/>
-                <path d="M17.42 16.14L5.32 23.06a2 2 0 0 0 2.1-.1L19.38 15.5l-1.96.64z" fill="rgba(255,255,255,0.6)"/>
-                <path d="M17.42 7.86l1.96.64L7.42 1.04a2 2 0 0 0-2.1-.1l12.1 6.92z" fill="rgba(255,255,255,0.6)"/>
-              </svg>
-              <div>
-                <div style={{ fontSize: 8, color: "rgba(255,255,255,0.4)", lineHeight: 1, marginBottom: 1 }}>Get it on</div>
-                <div style={{ fontSize: 10.5, fontWeight: 600, color: "rgba(255,255,255,0.82)", lineHeight: 1, letterSpacing: -0.1 }}>Google Play</div>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       </div>
 
       {/* ── Build status ── */}
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-        padding: "7px 10px",
-        borderRadius: 10,
-        background: "rgba(255,255,255,0.018)",
-        border: "1px solid rgba(255,255,255,0.05)",
-        flexShrink: 0,
-      }}>
-        <div style={{
-          width: 5, height: 5, borderRadius: "50%",
-          background: "#4ade80",
-          boxShadow: "0 0 7px rgba(74,222,128,0.8)",
-          flexShrink: 0,
-        }} />
+      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 10px", borderRadius: 10, background: "rgba(255,255,255,0.018)", border: "1px solid rgba(255,255,255,0.05)", flexShrink: 0 }}>
+        <div style={{ width: 5, height: 5, borderRadius: "50%", background: sleekApp?.isFunctional ? "#CCFF00" : "#4ade80", boxShadow: sleekApp?.isFunctional ? "0 0 7px rgba(204,255,0,0.8)" : "0 0 7px rgba(74,222,128,0.8)", flexShrink: 0 }} />
         <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>
-          Build ready · {project.name} {project.version}
+          {sleekApp?.isFunctional ? `Functional · ${sleekApp.screens.length} screens` : `Build ready · ${project.name} ${project.version}`}
         </span>
       </div>
     </div>

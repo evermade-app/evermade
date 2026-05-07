@@ -6,46 +6,56 @@ interface ScreenCode {
   code: string;
 }
 
+interface NavigationFiles {
+  appTsx: string;
+  navigatorTsx: string;
+}
+
 interface AssembleOptions {
   appName: string;
   screens: ScreenCode[];
   screenshots: { name: string; url?: string }[];
+  navigation?: NavigationFiles;
 }
 
 function toSlug(name: string) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
-function buildPackageJson(appName: string) {
-  return JSON.stringify(
-    {
-      name: toSlug(appName),
-      version: "1.0.0",
-      main: "expo-router/entry",
-      scripts: {
-        start: "expo start",
-        android: "expo start --android",
-        ios: "expo start --ios",
-        web: "expo start --web",
-      },
-      dependencies: {
-        expo: "~52.0.0",
-        "expo-router": "~4.0.0",
-        "expo-status-bar": "~2.0.1",
-        react: "18.3.1",
-        "react-native": "0.76.5",
-        "react-native-safe-area-context": "4.12.0",
-        "react-native-screens": "~4.1.0",
-      },
-      devDependencies: {
-        "@babel/core": "^7.25.2",
-        "@types/react": "~18.3.12",
-        typescript: "^5.3.3",
-      },
+function buildPackageJson(appName: string, functional: boolean) {
+  const base = {
+    name: toSlug(appName),
+    version: "1.0.0",
+    main: functional ? "index.js" : "expo-router/entry",
+    scripts: {
+      start: "expo start",
+      android: "expo start --android",
+      ios: "expo start --ios",
+      web: "expo start --web",
     },
-    null,
-    2
-  );
+    dependencies: {
+      expo: "~51.0.0",
+      "expo-status-bar": "~1.12.1",
+      react: "18.2.0",
+      "react-native": "0.74.5",
+      "react-native-safe-area-context": "4.10.5",
+      "react-native-screens": "~3.31.1",
+      ...(functional
+        ? {
+            "@react-navigation/native": "^6.1.17",
+            "@react-navigation/native-stack": "^6.9.26",
+            "@react-navigation/bottom-tabs": "^6.5.20",
+          }
+        : {}),
+    },
+    devDependencies: {
+      "@babel/core": "^7.24.0",
+      "@types/react": "~18.2.79",
+      typescript: "^5.3.3",
+    },
+  };
+
+  return JSON.stringify(base, null, 2);
 }
 
 function buildAppJson(appName: string) {
@@ -62,6 +72,7 @@ function buildAppJson(appName: string) {
         ios: { supportsTablet: true },
         android: { adaptiveIcon: { foregroundImage: "./assets/adaptive-icon.png", backgroundColor: "#080818" } },
         web: { bundler: "metro" },
+        ...(true ? {} : { scheme: "evermade" }),
       },
     },
     null,
@@ -96,36 +107,59 @@ function buildTsConfig() {
   );
 }
 
-function buildAppLayout(screens: ScreenCode[]) {
+// Simple entry point when navigation bundle is provided
+function buildIndexJs() {
+  return `import { registerRootComponent } from "expo";
+import App from "./App";
+
+registerRootComponent(App);
+`;
+}
+
+// Fallback layout for non-functional export (basic tab navigator, all screens visible)
+function buildSimpleAppTsx(screens: ScreenCode[]) {
   const imports = screens
-    .map((s) => `import ${s.componentName} from "../screens/${s.componentName}";`)
+    .map((s) => `import ${s.componentName} from "./screens/${s.componentName}";`)
     .join("\n");
 
-  const tabs = screens
-    .map(
-      (s) =>
-        `        <Tab.Screen name="${s.screenName}" component={${s.componentName}} />`
-    )
-    .join("\n");
-
-  return `import React from "react";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { NavigationContainer } from "@react-navigation/native";
+  return `import React, { useState } from "react";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 ${imports}
 
-const Tab = createBottomTabNavigator();
+// Simple stack-based navigator (no react-navigation required)
+const SCREENS = [${screens.map((s) => `"${s.screenName}"`).join(", ")}];
+const COMPONENTS = [${screens.map((s) => s.componentName).join(", ")}];
 
 export default function App() {
+  const [idx, setIdx] = useState(0);
+  const CurrentScreen = COMPONENTS[idx];
   return (
-    <NavigationContainer>
-      <Tab.Tabs
-        screenOptions={{ headerShown: false, tabBarStyle: { display: "none" } }}
-      >
-${tabs}
-      </Tab.Tabs>
-    </NavigationContainer>
+    <View style={styles.root}>
+      <CurrentScreen />
+      <View style={styles.nav}>
+        <TouchableOpacity style={styles.btn} onPress={() => setIdx((i) => Math.max(0, i - 1))}>
+          <Text style={styles.btnText}>← Prev</Text>
+        </TouchableOpacity>
+        <Text style={styles.label}>{SCREENS[idx]}</Text>
+        <TouchableOpacity style={styles.btn} onPress={() => setIdx((i) => Math.min(SCREENS.length - 1, i + 1))}>
+          <Text style={styles.btnText}>Next →</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1, backgroundColor: "#080818" },
+  nav: {
+    flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+    paddingVertical: 12, paddingHorizontal: 16,
+    backgroundColor: "#0a0a20", borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.08)",
+  },
+  btn: { padding: 8 },
+  btnText: { color: "#CCFF00", fontSize: 13, fontWeight: "600" },
+  label: { color: "rgba(255,255,255,0.55)", fontSize: 11, flex: 1, textAlign: "center" },
+});
 `;
 }
 
@@ -140,16 +174,25 @@ function buildBabelConfig() {
 }
 
 export async function assembleExpoZip(options: AssembleOptions): Promise<Buffer> {
-  const { appName, screens } = options;
+  const { appName, screens, navigation } = options;
+  const isFunctional = !!navigation;
   const zip = new JSZip();
 
-  zip.file("package.json", buildPackageJson(appName));
+  zip.file("package.json", buildPackageJson(appName, isFunctional));
   zip.file("app.json", buildAppJson(appName));
   zip.file("eas.json", buildEasJson());
   zip.file("tsconfig.json", buildTsConfig());
   zip.file("babel.config.js", buildBabelConfig());
 
-  zip.file("app/_layout.tsx", buildAppLayout(screens));
+  if (isFunctional && navigation) {
+    // Functional export: real navigation + RN screen components
+    zip.file("index.js", buildIndexJs());
+    zip.file("App.tsx", navigation.appTsx);
+    zip.file("navigation/AppNavigator.tsx", navigation.navigatorTsx);
+  } else {
+    // Non-functional export: simple sequential screen browser
+    zip.file("App.tsx", buildSimpleAppTsx(screens));
+  }
 
   for (const screen of screens) {
     zip.file(`screens/${screen.componentName}.tsx`, screen.code);
@@ -157,12 +200,16 @@ export async function assembleExpoZip(options: AssembleOptions): Promise<Buffer>
 
   zip.file(
     "assets/.gitkeep",
-    "# Place icon.png, splash.png, adaptive-icon.png here\n"
+    "# Place icon.png (1024×1024), splash.png (1284×2778), adaptive-icon.png (1024×1024) here\n"
   );
 
   zip.file(
     "README.md",
-    `# ${appName}\n\nGenerated by [Evermade](https://evermade.app) — AI-powered mobile app builder.\n\n## Getting started\n\n\`\`\`bash\nnpm install\nnpx expo start\n\`\`\`\n`
+    `# ${appName}\n\nGenerated by [Evermade](https://evermade.app) — AI-powered mobile app builder.\n\n## Getting started\n\n\`\`\`bash\nnpm install\nnpx expo start\n\`\`\`\n${
+      isFunctional
+        ? "\n## Navigation\n\nThis app uses React Navigation v6 with Stack + Bottom Tabs.\n"
+        : "\n## Note\n\nRun \"Make it functional\" in Evermade to get full React Navigation setup.\n"
+    }`
   );
 
   const buffer = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
