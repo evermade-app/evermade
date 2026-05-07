@@ -26,7 +26,7 @@ function buildPackageJson(appName: string, functional: boolean) {
   const base = {
     name: toSlug(appName),
     version: "1.0.0",
-    main: functional ? "index.js" : "expo-router/entry",
+    main: "index.js",
     scripts: {
       start: "expo start",
       android: "expo start --android",
@@ -34,23 +34,23 @@ function buildPackageJson(appName: string, functional: boolean) {
       web: "expo start --web",
     },
     dependencies: {
-      expo: "~51.0.0",
-      "expo-status-bar": "~1.12.1",
-      react: "18.2.0",
-      "react-native": "0.74.5",
-      "react-native-safe-area-context": "4.10.5",
-      "react-native-screens": "~3.31.1",
+      expo: "~52.0.0",
+      "expo-status-bar": "~2.0.1",
+      react: "18.3.1",
+      "react-native": "0.76.5",
+      "react-native-safe-area-context": "4.12.0",
+      "react-native-screens": "~4.1.0",
       ...(functional
         ? {
-            "@react-navigation/native": "^6.1.17",
+            "@react-navigation/native": "^6.1.18",
             "@react-navigation/native-stack": "^6.9.26",
-            "@react-navigation/bottom-tabs": "^6.5.20",
+            "@react-navigation/bottom-tabs": "^6.6.1",
           }
         : {}),
     },
     devDependencies: {
-      "@babel/core": "^7.24.0",
-      "@types/react": "~18.2.79",
+      "@babel/core": "^7.25.2",
+      "@types/react": "~18.3.12",
       typescript: "^5.3.3",
     },
   };
@@ -184,13 +184,14 @@ export async function assembleExpoZip(options: AssembleOptions): Promise<Buffer>
   zip.file("tsconfig.json", buildTsConfig());
   zip.file("babel.config.js", buildBabelConfig());
 
+  // Always include index.js — it's the entry point declared in package.json
+  zip.file("index.js", buildIndexJs());
+
   if (isFunctional && navigation) {
-    // Functional export: real navigation + RN screen components
-    zip.file("index.js", buildIndexJs());
     zip.file("App.tsx", navigation.appTsx);
     zip.file("navigation/AppNavigator.tsx", navigation.navigatorTsx);
   } else {
-    // Non-functional export: simple sequential screen browser
+    // Non-functional export: simple sequential screen browser (no react-navigation needed)
     zip.file("App.tsx", buildSimpleAppTsx(screens));
   }
 
