@@ -91,11 +91,6 @@ const UsersIcon = () => (
   </svg>
 );
 
-const SparkleIcon = () => (
-  <svg width="17" height="17" viewBox="0 0 15 15" fill="none">
-    <path d="M7.5 1v13M1 7.5h13M4 4l7 7M11 4L4 11" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-  </svg>
-);
 
 const TemplateIcon = () => (
   <svg width="17" height="17" viewBox="0 0 15 15" fill="none">
@@ -560,10 +555,6 @@ export default function DashboardSidebar() {
 
             <div style={{ width: 28, height: 1, background: "rgba(255,255,255,0.06)", margin: "4px 0" }} />
 
-            <RailIcon icon={<SparkleIcon />} title="AI Builder" onClick={() => router.push("/builder")} />
-
-            <div style={{ width: 28, height: 1, background: "rgba(255,255,255,0.06)", margin: "4px 0" }} />
-
             <RailIcon icon={<ClockIcon />} title="Recent" onClick={() => {}} />
             <RailIcon icon={<FolderIcon />} title="All projects" onClick={() => router.push("/dashboard")} />
             <RailIcon icon={<StarIcon />} title="Starred" onClick={() => {}} />
@@ -710,10 +701,6 @@ export default function DashboardSidebar() {
         <div style={{ flex: 1, overflowY: "auto", overflowX: "hidden", scrollbarWidth: "none", padding: "8px 4px" }}>
           <SidebarNavItem icon={<HomeIcon />} label="Home" onClick={() => router.push("/dashboard")} />
           <SidebarNavItem icon={<SearchIcon />} label="Search" badge="⌘K" onClick={() => {}} />
-
-          <Divider />
-          <SidebarSection label="Agents" />
-          <SidebarNavItem icon={<SparkleIcon />} label="AI Builder" badge="New" onClick={() => router.push("/builder")} />
 
           <Divider />
           <SidebarSection label="Projects" />
