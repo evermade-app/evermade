@@ -11,9 +11,9 @@ RULES:
 - Output a single self-contained .tsx file that exports a default React component
 - Component name = PascalCase version of the screen name (e.g. "Home Screen" → HomeScreen)
 - Colors must be hardcoded hex values matching the design
-- NEVER import from expo-constants, expo-modules-core, or any Expo SDK package — these conflict with Expo Go's built-in modules
-- NEVER import from react-navigation, @react-navigation, or any icons package
-- All values (insets, status bar height, etc.) must be hardcoded — do not read them from device APIs
+- NEVER import from expo-constants, expo-device, expo-modules-core, or react-native-gesture-handler — these crash Expo Go
+- NEVER import from @react-navigation or any icons package
+- All values (insets, status bar height, etc.) must be hardcoded numbers — do not read them from any device API
 - Status bar style: dark-content for light bg, light-content for dark bg
 - Return ONLY the TypeScript code — no markdown, no explanation`;
 
@@ -69,9 +69,13 @@ async function convertScreen(screen: SleekScreen): Promise<ScreenCode> {
   const data = await res.json() as { choices: Array<{ message: { content: string } }> };
   const raw = data.choices[0]?.message?.content ?? "";
   const stripped = raw.replace(/^```(?:tsx?|typescript)?\n?/, "").replace(/\n?```$/, "").trim();
-  // Strip any Expo SDK imports that conflict with Expo Go's built-in TurboModules
-  const code = stripped.replace(/^import\s+.*from\s+['"]expo-constants['"];?\s*\n?/gm, "")
-                        .replace(/^import\s+.*from\s+['"]expo-modules-core['"];?\s*\n?/gm, "");
+  // Hard-strip any forbidden imports regardless of what GPT-4o generated
+  const code = stripped
+    .replace(/^import\s+["']react-native-gesture-handler["'];?\s*\n?/gm, "")
+    .replace(/^import\s+\S+\s+from\s+["']react-native-gesture-handler["'];?\s*\n?/gm, "")
+    .replace(/^import\s+.*from\s+["']expo-constants[""];?\s*\n?/gm, "")
+    .replace(/^import\s+.*from\s+["']expo-device[""];?\s*\n?/gm, "")
+    .replace(/^import\s+.*from\s+["']expo-modules-core[""];?\s*\n?/gm, "");
 
   const safeName = screen.name.replace(/[^a-zA-Z0-9 ]/g, "").trim();
   const componentName = safeName.split(/\s+/).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join("") + "Screen";

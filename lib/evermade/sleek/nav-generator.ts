@@ -8,7 +8,7 @@ export interface ScreenForNav {
   screenName: string;
 }
 
-const NAV_SYSTEM_PROMPT = `You are a senior React Native engineer. Generate React Navigation v6 navigation files for a React Native + Expo SDK 51 app.
+const NAV_SYSTEM_PROMPT = `You are a senior React Native engineer. Generate React Navigation v6 navigation files for a React Native + Expo SDK 54 app targeting Expo Go.
 
 Output ONLY valid JSON in this exact schema (no markdown, no extra keys):
 {
@@ -18,32 +18,34 @@ Output ONLY valid JSON in this exact schema (no markdown, no extra keys):
 
 STRICT RULES:
 1. App.tsx must:
-   - First line MUST be: import "react-native-gesture-handler";
+   - NO import of react-native-gesture-handler (native-stack does not need it)
+   - NO import of expo-constants, expo-device, expo-modules-core (these crash Expo Go)
+   - Import React from "react"
    - Import NavigationContainer from "@react-navigation/native"
    - Import AppNavigator from "./navigation/AppNavigator"
    - Export default function App() wrapping AppNavigator in NavigationContainer
-   - Nothing else
+   - Nothing else in this file
 
 2. navigation/AppNavigator.tsx must:
-   - Classify screens: any screen whose name contains "Onboarding" → onboarding stack (no tab bar). All others → bottom tab navigator.
-   - Any screen whose name contains "Detail" (and is not onboarding) → stack screen inside the nearest tab, not a tab itself.
-   - Import createStackNavigator from "@react-navigation/stack"
+   - Classify screens: any screen whose name contains "Onboarding" → native stack (no tab bar). All others → bottom tab navigator.
+   - Any screen whose name contains "Detail" (and is not onboarding) → stack screen pushed from the root, not a tab.
+   - Import createNativeStackNavigator from "@react-navigation/native-stack"
    - Import createBottomTabNavigator from "@react-navigation/bottom-tabs"
    - Import ALL screens from "../screens/{componentName}"
-   - Define proper TypeScript RootStackParamList, OnboardingStackParamList, MainTabParamList
-   - Export default function AppNavigator() — root stack with Onboarding and Main screens
-   - OnboardingNavigator: stack of onboarding screens, last screen navigates to "Main" via navigation.replace("Main")
+   - Import React and Text from "react-native"
+   - Define TypeScript RootStackParamList, MainTabParamList
+   - Export default function AppNavigator() — root native-stack with Onboarding and Main
+   - OnboardingNavigator: native-stack of onboarding screens (headerShown: false)
    - MainNavigator: bottom tabs for all non-onboarding, non-detail screens
-   - Tab icons: use React.createElement(Text, { style: { fontSize: focused ? 20 : 18 } }, "<emoji>") — import Text from "react-native"
+   - Tab icons: use React.createElement(Text, { style: { fontSize: focused ? 20 : 18 } }, "<emoji>")
    - Tab bar style: backgroundColor "#0a0a18", borderTopColor "rgba(255,255,255,0.07)", activeTintColor "#CCFF00", inactiveTintColor "rgba(255,255,255,0.35)"
-   - No headerShown on any navigator or screen
-   - Use React.createElement for tab icons (not JSX arrow functions that might confuse the bundler)
+   - headerShown: false on every navigator and screen
+   - NO import of expo-constants, expo-device, expo-modules-core, react-native-gesture-handler
 
-3. Tab emoji guide (pick the best match):
+3. Tab emoji guide:
    Home/Dashboard → 🏠, Feature/Core → ⚡, Secondary → 🔍, Profile → 👤, Settings → ⚙️, Detail → 📄, Chat → 💬, Map → 🗺️, Shop → 🛒, Activity → 📊, Health → ❤️, Wallet → 💳
 
-4. Packages available (already in node_modules):
-   @react-navigation/native, @react-navigation/stack, @react-navigation/bottom-tabs, react-native-gesture-handler, react-native-screens, react-native-safe-area-context
+4. Packages available: @react-navigation/native, @react-navigation/native-stack, @react-navigation/bottom-tabs, react-native-screens, react-native-safe-area-context
 
 5. The generated code must compile with TypeScript strict mode.`;
 
@@ -103,7 +105,11 @@ export async function generateNavigation(
     throw new Error("Navigation GPT-4o response missing appTsx or navigatorTsx");
   }
 
-  return { appTsx: parsed.appTsx, navigatorTsx: parsed.navigatorTsx };
+  // Strip any forbidden imports that GPT-4o may have hallucinated
+  return {
+    appTsx: stripForbiddenImports(parsed.appTsx),
+    navigatorTsx: stripForbiddenImports(parsed.navigatorTsx),
+  };
 }
 
 // Deterministic fallback used when GPT-4o is unavailable or fails
@@ -136,22 +142,20 @@ export function buildFallbackNavigation(
   }
 
   function toTabLabel(name: string): string {
-    return name
-      .replace(/\b(Screen|Dashboard|Feature)\b/gi, "")
-      .trim()
-      .split(/\s+/)[0] || name.split(/\s+/)[0];
+    return (
+      name
+        .replace(/\b(Screen|Dashboard|Feature)\b/gi, "")
+        .trim()
+        .split(/\s+/)[0] || name.split(/\s+/)[0]
+    );
   }
 
   const allImports = screens
     .map((s) => `import ${s.componentName} from "../screens/${s.componentName}";`)
     .join("\n");
 
-  const onboardingScreens = onboarding.length > 0 ? onboarding : [];
-  const onboardingStackScreens = onboardingScreens
-    .map((s, i) => {
-      const routeName = `Onboard${i}`;
-      return `      <OnboardStack.Screen name="${routeName}" component={${s.componentName}} />`;
-    })
+  const onboardingStackScreens = onboarding
+    .map((s, i) => `      <OnboardStack.Screen name="Onboard${i}" component={${s.componentName}} />`)
     .join("\n");
 
   const tabScreens = tabs
@@ -170,13 +174,13 @@ export function buildFallbackNavigation(
     })
     .join("\n");
 
-  const detailScreens = detail.length > 0
-    ? detail.map((s) => `      <RootStack.Screen name="${s.componentName}" component={${s.componentName}} />`).join("\n")
-    : "";
+  const detailScreens = detail
+    .map((s) => `      <RootStack.Screen name="${s.componentName}" component={${s.componentName}} />`)
+    .join("\n");
 
   const navigatorTsx = `import React from "react";
 import { Text } from "react-native";
-import { createStackNavigator } from "@react-navigation/stack";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 ${allImports}
 
@@ -186,11 +190,11 @@ type RootStackParamList = {
 ${detail.map((s) => `  ${s.componentName}: undefined;`).join("\n")}
 };
 
-const RootStack = createStackNavigator<RootStackParamList>();
-const OnboardStack = createStackNavigator();
+const RootStack = createNativeStackNavigator<RootStackParamList>();
+const OnboardStack = createNativeStackNavigator();
 const MainTab = createBottomTabNavigator();
 
-const tabBarStyle = {
+const TAB_BAR = {
   tabBarStyle: {
     backgroundColor: "#0a0a18",
     borderTopColor: "rgba(255,255,255,0.07)",
@@ -215,7 +219,7 @@ ${onboardingStackScreens}
 }
 function MainNavigator() {
   return (
-    <MainTab.Navigator screenOptions={tabBarStyle}>
+    <MainTab.Navigator screenOptions={TAB_BAR}>
 ${tabScreens}
     </MainTab.Navigator>
   );
@@ -230,8 +234,7 @@ ${detailScreens ? `${detailScreens}\n` : ""}    </RootStack.Navigator>
 }
 `;
 
-  const appTsx = `import "react-native-gesture-handler";
-import React from "react";
+  const appTsx = `import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import AppNavigator from "./navigation/AppNavigator";
 
@@ -245,4 +248,14 @@ export default function App() {
 `;
 
   return { appTsx, navigatorTsx };
+}
+
+// Strip imports known to crash Expo Go — applied to both GPT-4o and fallback output
+function stripForbiddenImports(code: string): string {
+  return code
+    .replace(/^import\s+["']react-native-gesture-handler["'];?\s*\n?/gm, "")
+    .replace(/^import\s+\S+\s+from\s+["']react-native-gesture-handler["'];?\s*\n?/gm, "")
+    .replace(/^import\s+.*\s+from\s+["']expo-constants[""];?\s*\n?/gm, "")
+    .replace(/^import\s+.*\s+from\s+["']expo-device[""];?\s*\n?/gm, "")
+    .replace(/^import\s+.*\s+from\s+["']expo-modules-core[""];?\s*\n?/gm, "");
 }

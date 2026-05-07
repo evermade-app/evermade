@@ -110,7 +110,6 @@ function buildPackageJson(appName: string, functional: boolean) {
         expo: "~54.0.0",
         "expo-asset": "~11.0.5",
         "expo-font": "~13.0.2",
-        "expo-modules-core": "~2.1.0",
         "expo-status-bar": "~2.0.1",
         react: "18.3.1",
         "react-native": "0.76.9",
@@ -119,9 +118,8 @@ function buildPackageJson(appName: string, functional: boolean) {
         ...(functional
           ? {
               "@react-navigation/native": "^6.1.18",
-              "@react-navigation/stack": "^6.4.1",
+              "@react-navigation/native-stack": "^6.9.26",
               "@react-navigation/bottom-tabs": "^6.6.1",
-              "react-native-gesture-handler": "~2.20.2",
             }
           : {}),
       },
