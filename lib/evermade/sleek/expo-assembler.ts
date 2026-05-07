@@ -109,8 +109,9 @@ function buildPackageJson(appName: string, functional: boolean) {
       dependencies: {
         expo: "~54.0.0",
         "expo-asset": "~11.0.5",
-        "expo-constants": "~17.0.3",
+        "expo-constants": "~17.0.8",
         "expo-font": "~13.0.2",
+        "expo-modules-core": "~2.1.0",
         "expo-status-bar": "~2.0.1",
         react: "18.3.1",
         "react-native": "0.76.9",
