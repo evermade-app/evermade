@@ -18,6 +18,7 @@ Output ONLY valid JSON in this exact schema (no markdown, no extra keys):
 
 STRICT RULES:
 1. App.tsx must:
+   - First line MUST be: import "react-native-gesture-handler";
    - Import NavigationContainer from "@react-navigation/native"
    - Import AppNavigator from "./navigation/AppNavigator"
    - Export default function App() wrapping AppNavigator in NavigationContainer
@@ -26,7 +27,7 @@ STRICT RULES:
 2. navigation/AppNavigator.tsx must:
    - Classify screens: any screen whose name contains "Onboarding" → onboarding stack (no tab bar). All others → bottom tab navigator.
    - Any screen whose name contains "Detail" (and is not onboarding) → stack screen inside the nearest tab, not a tab itself.
-   - Import createNativeStackNavigator from "@react-navigation/native-stack"
+   - Import createStackNavigator from "@react-navigation/stack"
    - Import createBottomTabNavigator from "@react-navigation/bottom-tabs"
    - Import ALL screens from "../screens/{componentName}"
    - Define proper TypeScript RootStackParamList, OnboardingStackParamList, MainTabParamList
@@ -42,7 +43,7 @@ STRICT RULES:
    Home/Dashboard → 🏠, Feature/Core → ⚡, Secondary → 🔍, Profile → 👤, Settings → ⚙️, Detail → 📄, Chat → 💬, Map → 🗺️, Shop → 🛒, Activity → 📊, Health → ❤️, Wallet → 💳
 
 4. Packages available (already in node_modules):
-   @react-navigation/native, @react-navigation/native-stack, @react-navigation/bottom-tabs, react-native-screens, react-native-safe-area-context
+   @react-navigation/native, @react-navigation/stack, @react-navigation/bottom-tabs, react-native-gesture-handler, react-native-screens, react-native-safe-area-context
 
 5. The generated code must compile with TypeScript strict mode.`;
 
@@ -175,7 +176,7 @@ export function buildFallbackNavigation(
 
   const navigatorTsx = `import React from "react";
 import { Text } from "react-native";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { createStackNavigator } from "@react-navigation/stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 ${allImports}
 
@@ -185,8 +186,8 @@ type RootStackParamList = {
 ${detail.map((s) => `  ${s.componentName}: undefined;`).join("\n")}
 };
 
-const RootStack = createNativeStackNavigator<RootStackParamList>();
-const OnboardStack = createNativeStackNavigator();
+const RootStack = createStackNavigator<RootStackParamList>();
+const OnboardStack = createStackNavigator();
 const MainTab = createBottomTabNavigator();
 
 const tabBarStyle = {
@@ -229,7 +230,8 @@ ${detailScreens ? `${detailScreens}\n` : ""}    </RootStack.Navigator>
 }
 `;
 
-  const appTsx = `import React from "react";
+  const appTsx = `import "react-native-gesture-handler";
+import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import AppNavigator from "./navigation/AppNavigator";
 
