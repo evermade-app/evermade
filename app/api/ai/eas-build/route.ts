@@ -27,13 +27,12 @@ async function uploadArchive(buf: Buffer, slug: string): Promise<string> {
   const supabase = createServiceSupabaseClient();
   const BUCKET = "eas-archives";
 
-  const { error: bucketErr } = await supabase.storage.createBucket(BUCKET, {
+  // Attempt to create bucket — ignore errors (bucket likely already exists).
+  // Upload failure will surface any real storage misconfiguration.
+  await supabase.storage.createBucket(BUCKET, {
     public: true,
     fileSizeLimit: 50 * 1024 * 1024,
   });
-  if (bucketErr && !bucketErr.message.toLowerCase().includes("already exist")) {
-    throw new Error(`Storage bucket error: ${bucketErr.message}`);
-  }
 
   const filePath = `${slug}/${Date.now()}.tar.gz`;
   const { error: uploadErr } = await supabase.storage
