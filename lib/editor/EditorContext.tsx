@@ -43,6 +43,8 @@ export interface SleekPreviewApp {
   activeIndex: number;
   isFunctional?: boolean;
   navigation?: NavigationBundle;
+  easBuildId?: string;
+  easBuildUrl?: string;
 }
 
 export interface VESelection {

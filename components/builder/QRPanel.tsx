@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { useEditor } from "@/lib/editor/EditorContext";
 import type { SleekPreviewApp, SleekPreviewScreen } from "@/lib/editor/EditorContext";
+import type { EASBuildStatus } from "@/lib/evermade/eas/client";
 
 // ── Real QR code via qrcode package ───────────────────────────────────────────
 function RealQRCode({ url }: { url: string }) {
@@ -410,6 +411,336 @@ function StepRow({ label, done, active }: { label: string; done: boolean; active
   );
 }
 
+// ── "Build for Android" section ───────────────────────────────────────────────
+type BuildState =
+  | { status: "idle" }
+  | { status: "triggering" }
+  | { status: "building"; buildId: string }
+  | { status: "done"; artifactUrl: string }
+  | { status: "error"; message: string };
+
+function fmtElapsed(secs: number): string {
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return m > 0 ? `${m}m ${s}s` : `${s}s`;
+}
+
+function DeviceBuildSection({
+  sleekApp,
+  onBuildId,
+  onDone,
+}: {
+  sleekApp: SleekPreviewApp;
+  onBuildId: (buildId: string) => void;
+  onDone: (artifactUrl: string) => void;
+}) {
+  const initState = (): BuildState => {
+    if (sleekApp.easBuildUrl) return { status: "done", artifactUrl: sleekApp.easBuildUrl };
+    if (sleekApp.easBuildId) return { status: "building", buildId: sleekApp.easBuildId };
+    return { status: "idle" };
+  };
+
+  const [buildState, setBuildState] = useState<BuildState>(initState);
+  const [elapsed, setElapsed] = useState(0);
+  const startedAtRef = useRef<number>(
+    sleekApp.easBuildId && !sleekApp.easBuildUrl ? Date.now() : 0
+  );
+  const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Elapsed timer while building
+  useEffect(() => {
+    if (buildState.status !== "building") return;
+    const id = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startedAtRef.current) / 1000));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [buildState.status]);
+
+  // Polling — 30 s cadence while in "building" state
+  useEffect(() => {
+    if (buildState.status !== "building") return;
+    const { buildId } = buildState;
+    let cancelled = false;
+
+    async function poll() {
+      try {
+        const res = await fetch(`/api/ai/eas-build/${buildId}`);
+        const data = (await res.json()) as {
+          status?: EASBuildStatus;
+          artifactUrl?: string;
+          error?: string;
+        };
+        if (cancelled) return;
+        if (!res.ok) {
+          setBuildState({ status: "error", message: data.error ?? `HTTP ${res.status}` });
+          return;
+        }
+        if (data.status === "FINISHED" && data.artifactUrl) {
+          setBuildState({ status: "done", artifactUrl: data.artifactUrl });
+          onDone(data.artifactUrl);
+        } else if (
+          data.status === "ERRORED" ||
+          data.status === "CANCELED" ||
+          data.status === "EXPIRED"
+        ) {
+          setBuildState({
+            status: "error",
+            message: data.error ?? `Build ${(data.status ?? "").toLowerCase()}`,
+          });
+        } else {
+          if (!cancelled) pollRef.current = setTimeout(poll, 30_000);
+        }
+      } catch (err) {
+        if (!cancelled)
+          setBuildState({
+            status: "error",
+            message: err instanceof Error ? err.message : "Poll failed",
+          });
+      }
+    }
+
+    pollRef.current = setTimeout(poll, 30_000);
+    return () => {
+      cancelled = true;
+      if (pollRef.current) clearTimeout(pollRef.current);
+    };
+  }, [buildState, onDone]);
+
+  const handleTrigger = useCallback(async () => {
+    if (buildState.status === "triggering" || buildState.status === "building") return;
+    setBuildState({ status: "triggering" });
+    try {
+      const res = await fetch("/api/ai/eas-build", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          appName: sleekApp.appName,
+          screens: sleekApp.screens.map((s) => ({
+            screenName: s.name,
+            componentName: s.componentName ?? s.name,
+            code: s.rnCode ?? "",
+          })),
+          navigation: sleekApp.navigation,
+        }),
+      });
+      const data = (await res.json()) as { buildId?: string; error?: string };
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      if (!data.buildId) throw new Error("No buildId returned");
+
+      startedAtRef.current = Date.now();
+      setElapsed(0);
+      setBuildState({ status: "building", buildId: data.buildId });
+      onBuildId(data.buildId);
+    } catch (err) {
+      setBuildState({
+        status: "error",
+        message: err instanceof Error ? err.message : "Failed to start build",
+      });
+    }
+  }, [buildState.status, sleekApp, onBuildId]);
+
+  // ── Done ──
+  if (buildState.status === "done") {
+    return (
+      <div style={{
+        borderRadius: 14,
+        border: "1px solid rgba(52,211,153,0.25)",
+        background: "rgba(52,211,153,0.05)",
+        padding: "13px",
+        flexShrink: 0,
+        display: "flex",
+        flexDirection: "column",
+        gap: 10,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+          <div style={{
+            width: 22, height: 22, borderRadius: 7,
+            background: "rgba(52,211,153,0.18)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            flexShrink: 0,
+          }}>
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="#34d399" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="1.5 6 4.5 9 10.5 3" />
+            </svg>
+          </div>
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#34d399", marginBottom: 1 }}>Android APK ready</div>
+            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>Scan to install on your device</div>
+          </div>
+        </div>
+        <div style={{ display: "flex", justifyContent: "center" }}>
+          <div style={{ padding: 8, background: "white", borderRadius: 10, boxShadow: "0 4px 16px rgba(0,0,0,0.5)" }}>
+            <RealQRCode url={buildState.artifactUrl} />
+          </div>
+        </div>
+        <a
+          href={buildState.artifactUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{
+            display: "block",
+            textAlign: "center",
+            fontSize: 11,
+            color: "#34d399",
+            textDecoration: "none",
+            padding: "7px 0",
+            borderRadius: 8,
+            border: "1px solid rgba(52,211,153,0.25)",
+            background: "rgba(52,211,153,0.07)",
+          }}
+        >
+          Download APK →
+        </a>
+      </div>
+    );
+  }
+
+  // ── Triggering / Building ──
+  if (buildState.status === "triggering" || buildState.status === "building") {
+    const isTrigger = buildState.status === "triggering";
+    const pct = Math.min(90, Math.round((elapsed / 600) * 90));
+    return (
+      <div style={{
+        borderRadius: 14,
+        border: "1px solid rgba(204,255,0,0.2)",
+        background: "rgba(204,255,0,0.04)",
+        padding: "13px",
+        flexShrink: 0,
+      }}>
+        <style>{`@keyframes evSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+        <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 10 }}>
+          <div style={{
+            width: 22, height: 22, borderRadius: 7,
+            border: "1.5px solid rgba(204,255,0,0.45)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            flexShrink: 0,
+            animation: isTrigger ? "evSpin 1s linear infinite" : "none",
+          }}>
+            {isTrigger ? (
+              <div style={{ width: 8, height: 8, borderRadius: "50%", borderTop: "1.5px solid #CCFF00", borderRight: "1.5px solid transparent" }} />
+            ) : (
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#CCFF00" strokeWidth="2.2" strokeLinecap="round">
+                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+              </svg>
+            )}
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#CCFF00", marginBottom: 2 }}>
+              {isTrigger ? "Queuing build…" : "Building APK…"}
+            </div>
+            {!isTrigger && (
+              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>
+                {fmtElapsed(elapsed)} elapsed · ~5–10 min total
+              </div>
+            )}
+          </div>
+        </div>
+        {!isTrigger && (
+          <div style={{ height: 3, borderRadius: 2, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
+            <div style={{
+              height: "100%",
+              width: `${pct}%`,
+              borderRadius: 2,
+              background: "linear-gradient(90deg, #CCFF00, #7aff00)",
+              transition: "width 1s linear",
+              boxShadow: "0 0 8px rgba(204,255,0,0.5)",
+            }} />
+          </div>
+        )}
+        <div style={{ marginTop: 8, fontSize: 10, color: "rgba(255,255,255,0.22)", textAlign: "center" }}>
+          EAS Build · Android · internal distribution
+        </div>
+      </div>
+    );
+  }
+
+  // ── Idle / Error ──
+  const isError = buildState.status === "error";
+  return (
+    <div style={{
+      borderRadius: 14,
+      overflow: "hidden",
+      border: `1px solid ${isError ? "rgba(239,68,68,0.3)" : "rgba(124,92,252,0.25)"}`,
+      background: isError ? "rgba(239,68,68,0.05)" : "rgba(124,92,252,0.04)",
+      flexShrink: 0,
+    }}>
+      <div style={{
+        height: 1.5,
+        background: isError
+          ? "linear-gradient(90deg, rgba(239,68,68,0.8) 0%, transparent 100%)"
+          : "linear-gradient(90deg, rgba(124,92,252,0.9) 0%, rgba(79,142,255,0.5) 60%, transparent 100%)",
+      }} />
+
+      <div style={{ padding: "12px 13px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 8 }}>
+          <div style={{
+            width: 28, height: 28, borderRadius: 9,
+            background: isError ? "rgba(239,68,68,0.15)" : "rgba(124,92,252,0.15)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            flexShrink: 0,
+          }}>
+            {isError ? (
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="rgba(239,68,68,0.9)" strokeWidth="2" strokeLinecap="round">
+                <line x1="2" y1="2" x2="10" y2="10" /><line x1="10" y1="2" x2="2" y2="10" />
+              </svg>
+            ) : (
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(124,92,252,0.9)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="5" y="2" width="14" height="20" rx="2" />
+                <line x1="12" y1="18" x2="12.01" y2="18" strokeWidth="2.5" />
+              </svg>
+            )}
+          </div>
+          <div>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: isError ? "rgba(239,68,68,0.9)" : "rgba(255,255,255,0.85)", marginBottom: 1 }}>
+              {isError ? "Build failed" : "Build for device"}
+            </div>
+            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.28)" }}>
+              {isError
+                ? (buildState.message).slice(0, 60)
+                : "Install the real APK on Android"}
+            </div>
+          </div>
+        </div>
+
+        {!isError && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 10 }}>
+            {["Compile React Native → Android APK", "Download & install via QR scan"].map((step) => (
+              <div key={step} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ width: 3, height: 3, borderRadius: "50%", background: "rgba(124,92,252,0.5)", flexShrink: 0 }} />
+                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>{step}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={handleTrigger}
+          style={{
+            width: "100%",
+            padding: "9px 0",
+            borderRadius: 9,
+            border: `1px solid ${isError ? "rgba(239,68,68,0.4)" : "rgba(124,92,252,0.45)"}`,
+            background: isError
+              ? "rgba(239,68,68,0.08)"
+              : "linear-gradient(135deg, rgba(124,92,252,0.2) 0%, rgba(79,142,255,0.1) 100%)",
+            color: isError ? "rgba(239,68,68,0.85)" : "rgba(255,255,255,0.85)",
+            fontSize: 12.5,
+            fontWeight: 700,
+            cursor: "pointer",
+            letterSpacing: 0.1,
+            boxShadow: isError ? "none" : "0 0 14px rgba(124,92,252,0.12)",
+            fontFamily: "inherit",
+            transition: "all 0.15s ease",
+          }}
+        >
+          {isError ? "Retry build →" : "Build for Android →"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Main QR Panel ─────────────────────────────────────────────────────────────
 export default function QRPanel() {
   const { project, sleekApp, setSleekApp } = useEditor();
@@ -438,6 +769,16 @@ export default function QRPanel() {
   const handleFunctionalizeDone = useCallback((updatedApp: SleekPreviewApp) => {
     setSleekApp(updatedApp);
   }, [setSleekApp]);
+
+  const handleBuildId = useCallback((buildId: string) => {
+    if (!sleekApp) return;
+    setSleekApp({ ...sleekApp, easBuildId: buildId });
+  }, [sleekApp, setSleekApp]);
+
+  const handleBuildDone = useCallback((artifactUrl: string) => {
+    if (!sleekApp) return;
+    setSleekApp({ ...sleekApp, easBuildUrl: artifactUrl });
+  }, [sleekApp, setSleekApp]);
 
   const hasScreens = sleekApp && sleekApp.screens.length > 0;
 
@@ -535,7 +876,16 @@ export default function QRPanel() {
         <FunctionalizeSection sleekApp={sleekApp} onDone={handleFunctionalizeDone} />
       )}
 
-      {/* ── TIER 3: Guidance ── */}
+      {/* ── TIER 3: Build for device (shown once app is functional) ── */}
+      {hasScreens && sleekApp.isFunctional && (
+        <DeviceBuildSection
+          sleekApp={sleekApp}
+          onBuildId={handleBuildId}
+          onDone={handleBuildDone}
+        />
+      )}
+
+      {/* ── TIER 4: Guidance ── */}
       <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "0 4px", flexShrink: 0 }}>
         {[
           "Browser preview is approximate — native device shows true performance.",
@@ -548,7 +898,7 @@ export default function QRPanel() {
         ))}
       </div>
 
-      {/* ── TIER 4: Deploy card ── */}
+      {/* ── TIER 5: Deploy card ── */}
       <div style={{
         borderRadius: 16, overflow: "hidden",
         border: "1px solid rgba(79,142,255,0.22)",
