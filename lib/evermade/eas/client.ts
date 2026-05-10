@@ -49,23 +49,30 @@ async function gql<T = unknown>(
     body: JSON.stringify({ query, variables }),
   });
 
+  const rawBody = await res.text();
+
   if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`EAS GraphQL HTTP ${res.status}: ${body}`);
+    // Log full body so it appears in Vercel function logs
+    console.error("[EAS] HTTP error", res.status, rawBody);
+    throw new Error(`EAS GraphQL HTTP ${res.status}: ${rawBody}`);
   }
 
-  const data = (await res.json()) as {
-    data?: T;
-    errors?: Array<{ message: string }>;
-  };
+  let parsed: { data?: T; errors?: Array<{ message: string }> };
+  try {
+    parsed = JSON.parse(rawBody) as typeof parsed;
+  } catch {
+    console.error("[EAS] Non-JSON response:", rawBody);
+    throw new Error(`EAS GraphQL returned non-JSON: ${rawBody.slice(0, 200)}`);
+  }
 
-  if (data.errors?.length) {
+  if (parsed.errors?.length) {
+    console.error("[EAS] GraphQL errors:", JSON.stringify(parsed.errors));
     throw new Error(
-      `EAS GraphQL error: ${data.errors.map((e) => e.message).join(", ")}`
+      `EAS GraphQL error: ${parsed.errors.map((e) => e.message).join(", ")}`
     );
   }
 
-  return data.data as T;
+  return parsed.data as T;
 }
 
 // ── Pure-JS POSIX TAR builder ──────────────────────────────────────────────────
@@ -73,80 +80,53 @@ async function gql<T = unknown>(
 function writeTarHeader(filePath: string, size: number): Buffer {
   const header = Buffer.alloc(512);
 
-  // name (100 bytes, null-padded)
   const nameBytes = Buffer.from(filePath, "ascii");
   nameBytes.copy(header, 0, 0, Math.min(nameBytes.length, 100));
 
-  // mode, uid, gid
   Buffer.from("0000644\0", "ascii").copy(header, 100);
   Buffer.from("0000000\0", "ascii").copy(header, 108);
   Buffer.from("0000000\0", "ascii").copy(header, 116);
 
-  // size (12 bytes, octal, null-terminated)
-  Buffer.from(size.toString(8).padStart(11, "0") + "\0", "ascii").copy(
-    header,
-    124
-  );
+  Buffer.from(size.toString(8).padStart(11, "0") + "\0", "ascii").copy(header, 124);
 
-  // mtime (12 bytes, octal, null-terminated)
   const mtime = Math.floor(Date.now() / 1000);
-  Buffer.from(mtime.toString(8).padStart(11, "0") + "\0", "ascii").copy(
-    header,
-    136
-  );
+  Buffer.from(mtime.toString(8).padStart(11, "0") + "\0", "ascii").copy(header, 136);
 
-  // checksum placeholder = 8 spaces (used in sum calculation)
   header.fill(0x20, 148, 156);
-
-  // typeflag: '0' = regular file
   header[156] = 0x30;
 
-  // ustar magic + version
   Buffer.from("ustar\0", "ascii").copy(header, 257);
   Buffer.from("00", "ascii").copy(header, 263);
 
-  // Compute unsigned checksum over all 512 bytes (spaces already in 148-155)
   let sum = 0;
   for (let i = 0; i < 512; i++) sum += header[i] ?? 0;
-
-  // Write checksum: 6-digit octal + NUL + space
-  Buffer.from(sum.toString(8).padStart(6, "0") + "\0 ", "ascii").copy(
-    header,
-    148
-  );
+  Buffer.from(sum.toString(8).padStart(6, "0") + "\0 ", "ascii").copy(header, 148);
 
   return header;
 }
 
 function tarEntry(filePath: string, content: Buffer): Buffer {
   const header = writeTarHeader(filePath, content.length);
-  // Content padded to 512-byte boundary
   const padded = Buffer.alloc(Math.ceil(content.length / 512) * 512);
   content.copy(padded);
   return Buffer.concat([header, padded]);
 }
-
-// ── Project archive builder ────────────────────────────────────────────────────
 
 export async function buildProjectTarGz(options: {
   appName: string;
   screens: ScreenCode[];
   navigation?: NavigationFiles;
 }): Promise<Buffer> {
-  const { appName, screens, navigation } = options;
-
-  // Delegate file content generation to expo-assembler (reuses all existing logic)
   const zipBuf = await assembleExpoZip({
-    appName,
-    screens,
+    appName: options.appName,
+    screens: options.screens,
     screenshots: [],
-    navigation,
+    navigation: options.navigation,
   });
 
   const zip = await JSZip.loadAsync(zipBuf);
   const chunks: Buffer[] = [];
 
-  // Collect non-directory entries, sorted for reproducibility
   const entries = Object.entries(zip.files)
     .filter(([, f]) => !f.dir)
     .sort(([a], [b]) => a.localeCompare(b));
@@ -156,67 +136,101 @@ export async function buildProjectTarGz(options: {
     chunks.push(tarEntry(filePath, content));
   }
 
-  // POSIX TAR end-of-archive: two 512-byte zero blocks
   chunks.push(Buffer.alloc(1024));
-
   return gzipSync(Buffer.concat(chunks));
 }
 
-// ── EAS build operations ───────────────────────────────────────────────────────
+// ── EAS build trigger operations ───────────────────────────────────────────────
+
+// Common metadata for both platforms
+function buildMetadata(appName: string, distribution: string) {
+  return {
+    appName,
+    buildProfile: "preview",
+    distribution,
+    sdkVersion: "54.0.0",
+    workflow: "MANAGED",
+  };
+}
 
 export async function triggerAndroidBuild(
   archiveUrl: string,
   appName: string
 ): Promise<string> {
-  const CREATE_BUILD = `
-    mutation CreateAndroidBuild(
-      $appId: String!
+  const MUTATION = `
+    mutation CreateAndroidBuildMutation(
+      $appId: ID!
       $job: AndroidJobInput!
       $metadata: BuildMetadataInput
     ) {
       build {
         createAndroidBuild(appId: $appId, job: $job, metadata: $metadata) {
-          build {
-            id
-            status
-          }
+          build { id status }
         }
       }
     }
   `;
 
   const result = await gql<{
-    build: {
-      createAndroidBuild: {
-        build: { id: string; status: string };
-      };
-    };
-  }>(CREATE_BUILD, {
+    build: { createAndroidBuild: { build: { id: string; status: string } } };
+  }>(MUTATION, {
     appId: EAS_PROJECT_ID,
     job: {
       type: "MANAGED",
       projectArchive: { type: "URL", url: archiveUrl },
       buildType: "APK",
-      distribution: "INTERNAL",
     },
-    metadata: {
-      appName,
-      buildProfile: "preview",
-      sdkVersion: "54.0.0",
-      workflow: "MANAGED",
-    },
+    metadata: buildMetadata(appName, "internal"),
   });
 
-  const buildId = result.build?.createAndroidBuild?.build?.id;
-  if (!buildId) throw new Error("EAS did not return a build ID");
-  return buildId;
+  const id = result.build?.createAndroidBuild?.build?.id;
+  if (!id) throw new Error("EAS did not return an Android build ID");
+  return id;
 }
 
+export async function triggerIosBuild(
+  archiveUrl: string,
+  appName: string
+): Promise<string> {
+  const MUTATION = `
+    mutation CreateIosBuildMutation(
+      $appId: ID!
+      $job: IosJobInput!
+      $metadata: BuildMetadataInput
+    ) {
+      build {
+        createIosBuild(appId: $appId, job: $job, metadata: $metadata) {
+          build { id status }
+        }
+      }
+    }
+  `;
+
+  const result = await gql<{
+    build: { createIosBuild: { build: { id: string; status: string } } };
+  }>(MUTATION, {
+    appId: EAS_PROJECT_ID,
+    job: {
+      type: "MANAGED",
+      projectArchive: { type: "URL", url: archiveUrl },
+      buildType: "SIMULATOR",
+    },
+    metadata: buildMetadata(appName, "simulator"),
+  });
+
+  const id = result.build?.createIosBuild?.build?.id;
+  if (!id) throw new Error("EAS did not return an iOS build ID");
+  return id;
+}
+
+// ── Build status poll ──────────────────────────────────────────────────────────
+
 export async function getBuildStatus(buildId: string): Promise<BuildStatusResult> {
-  const POLL_BUILD = `
+  // Correct path: build.byId(id:)  — NOT builds.byId(buildId:)
+  const QUERY = `
     query BuildById($buildId: ID!) {
-      builds {
-        byId(buildId: $buildId) {
+      build {
+        byId(id: $buildId) {
           id
           status
           artifacts {
@@ -232,7 +246,7 @@ export async function getBuildStatus(buildId: string): Promise<BuildStatusResult
   `;
 
   const result = await gql<{
-    builds: {
+    build: {
       byId: {
         id: string;
         status: string;
@@ -240,17 +254,16 @@ export async function getBuildStatus(buildId: string): Promise<BuildStatusResult
         error?: { message: string };
       };
     };
-  }>(POLL_BUILD, { buildId });
+  }>(QUERY, { buildId });
 
-  const build = result.builds?.byId;
-  if (!build) throw new Error(`Build ${buildId} not found`);
+  const b = result.build?.byId;
+  if (!b) throw new Error(`Build ${buildId} not found`);
 
-  const artifactUrl =
-    build.artifacts?.buildUrl ?? build.artifacts?.applicationArchiveUrl;
+  const artifactUrl = b.artifacts?.buildUrl ?? b.artifacts?.applicationArchiveUrl;
 
   return {
-    status: build.status as EASBuildStatus,
+    status: b.status as EASBuildStatus,
     artifactUrl: artifactUrl ?? undefined,
-    error: build.error?.message,
+    error: b.error?.message,
   };
 }

@@ -411,13 +411,19 @@ function StepRow({ label, done, active }: { label: string; done: boolean; active
   );
 }
 
-// ── "Build for Android" section ───────────────────────────────────────────────
-type BuildState =
-  | { status: "idle" }
-  | { status: "triggering" }
-  | { status: "building"; buildId: string }
-  | { status: "done"; artifactUrl: string }
-  | { status: "error"; message: string };
+// ── "Build for iOS & Android" section ─────────────────────────────────────────
+type PlatformBuild = {
+  buildId: string;
+  status: "building" | "done" | "error";
+  artifactUrl?: string;
+  error?: string;
+};
+
+type BState =
+  | { phase: "idle" }
+  | { phase: "triggering" }
+  | { phase: "active"; android?: PlatformBuild; ios?: PlatformBuild; startedAt: number }
+  | { phase: "trigger-error"; message: string };
 
 function fmtElapsed(secs: number): string {
   const m = Math.floor(secs / 60);
@@ -425,90 +431,133 @@ function fmtElapsed(secs: number): string {
   return m > 0 ? `${m}m ${s}s` : `${s}s`;
 }
 
+async function fetchBuildStatus(buildId: string) {
+  const res = await fetch(`/api/ai/eas-build/${buildId}`);
+  const data = (await res.json()) as { status?: EASBuildStatus; artifactUrl?: string; error?: string };
+  if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+  return data;
+}
+
+function toLocalStatus(s: EASBuildStatus): PlatformBuild["status"] {
+  if (s === "FINISHED") return "done";
+  if (s === "ERRORED" || s === "CANCELED" || s === "EXPIRED") return "error";
+  return "building";
+}
+
 function DeviceBuildSection({
   sleekApp,
-  onBuildId,
-  onDone,
+  onPersist,
 }: {
   sleekApp: SleekPreviewApp;
-  onBuildId: (buildId: string) => void;
-  onDone: (artifactUrl: string) => void;
+  onPersist: (update: Partial<Pick<SleekPreviewApp, "easAndroidBuildId" | "easAndroidBuildUrl" | "easIosBuildId" | "easIosBuildUrl">>) => void;
 }) {
-  const initState = (): BuildState => {
-    if (sleekApp.easBuildUrl) return { status: "done", artifactUrl: sleekApp.easBuildUrl };
-    if (sleekApp.easBuildId) return { status: "building", buildId: sleekApp.easBuildId };
-    return { status: "idle" };
+  const initState = (): BState => {
+    const hasA = !!sleekApp.easAndroidBuildId;
+    const hasI = !!sleekApp.easIosBuildId;
+    if (!hasA && !hasI) return { phase: "idle" };
+    return {
+      phase: "active",
+      startedAt: Date.now(),
+      android: hasA ? {
+        buildId: sleekApp.easAndroidBuildId!,
+        status: sleekApp.easAndroidBuildUrl ? "done" : "building",
+        artifactUrl: sleekApp.easAndroidBuildUrl,
+      } : undefined,
+      ios: hasI ? {
+        buildId: sleekApp.easIosBuildId!,
+        status: sleekApp.easIosBuildUrl ? "done" : "building",
+        artifactUrl: sleekApp.easIosBuildUrl,
+      } : undefined,
+    };
   };
 
-  const [buildState, setBuildState] = useState<BuildState>(initState);
+  const [state, setState] = useState<BState>(initState);
   const [elapsed, setElapsed] = useState(0);
-  const startedAtRef = useRef<number>(
-    sleekApp.easBuildId && !sleekApp.easBuildUrl ? Date.now() : 0
-  );
+  const startedAtRef = useRef(0);
   const pollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Elapsed timer while building
+  // Keep a ref to the currently-pending build IDs so the polling closure
+  // always reads the latest value without being a dependency.
+  const pendingRef = useRef<{ androidId?: string; iosId?: string }>({});
   useEffect(() => {
-    if (buildState.status !== "building") return;
+    if (state.phase !== "active") { pendingRef.current = {}; return; }
+    pendingRef.current = {
+      androidId: state.android?.status === "building" ? state.android.buildId : undefined,
+      iosId: state.ios?.status === "building" ? state.ios.buildId : undefined,
+    };
+  }, [state]);
+
+  // Elapsed timer — resets whenever phase enters "active"
+  useEffect(() => {
+    if (state.phase !== "active") return;
     const id = setInterval(() => {
       setElapsed(Math.floor((Date.now() - startedAtRef.current) / 1000));
     }, 1000);
     return () => clearInterval(id);
-  }, [buildState.status]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.phase]);
 
-  // Polling — 30 s cadence while in "building" state
+  // Polling loop — starts once when phase becomes "active"
   useEffect(() => {
-    if (buildState.status !== "building") return;
-    const { buildId } = buildState;
+    if (state.phase !== "active") return;
     let cancelled = false;
 
-    async function poll() {
-      try {
-        const res = await fetch(`/api/ai/eas-build/${buildId}`);
-        const data = (await res.json()) as {
-          status?: EASBuildStatus;
-          artifactUrl?: string;
-          error?: string;
-        };
-        if (cancelled) return;
-        if (!res.ok) {
-          setBuildState({ status: "error", message: data.error ?? `HTTP ${res.status}` });
-          return;
-        }
-        if (data.status === "FINISHED" && data.artifactUrl) {
-          setBuildState({ status: "done", artifactUrl: data.artifactUrl });
-          onDone(data.artifactUrl);
-        } else if (
-          data.status === "ERRORED" ||
-          data.status === "CANCELED" ||
-          data.status === "EXPIRED"
-        ) {
-          setBuildState({
-            status: "error",
-            message: data.error ?? `Build ${(data.status ?? "").toLowerCase()}`,
-          });
-        } else {
-          if (!cancelled) pollRef.current = setTimeout(poll, 30_000);
-        }
-      } catch (err) {
-        if (!cancelled)
-          setBuildState({
-            status: "error",
-            message: err instanceof Error ? err.message : "Poll failed",
-          });
+    async function tick() {
+      if (cancelled) return;
+      const { androidId, iosId } = pendingRef.current;
+      if (!androidId && !iosId) return;
+
+      const [aRes, iRes] = await Promise.allSettled([
+        androidId ? fetchBuildStatus(androidId) : Promise.resolve(null),
+        iosId ? fetchBuildStatus(iosId) : Promise.resolve(null),
+      ]);
+
+      if (cancelled) return;
+
+      let aUpdate: PlatformBuild | undefined;
+      let iUpdate: PlatformBuild | undefined;
+
+      if (androidId && aRes.status === "fulfilled" && aRes.value) {
+        const r = aRes.value;
+        const ls = toLocalStatus(r.status!);
+        aUpdate = { buildId: androidId, status: ls, artifactUrl: r.artifactUrl, error: r.error };
+        if (ls === "done" && r.artifactUrl) onPersist({ easAndroidBuildUrl: r.artifactUrl });
+      } else if (androidId && aRes.status === "rejected") {
+        aUpdate = { buildId: androidId, status: "error", error: (aRes.reason as Error).message };
       }
+
+      if (iosId && iRes.status === "fulfilled" && iRes.value) {
+        const r = iRes.value;
+        const ls = toLocalStatus(r.status!);
+        iUpdate = { buildId: iosId, status: ls, artifactUrl: r.artifactUrl, error: r.error };
+        if (ls === "done" && r.artifactUrl) onPersist({ easIosBuildUrl: r.artifactUrl });
+      } else if (iosId && iRes.status === "rejected") {
+        iUpdate = { buildId: iosId, status: "error", error: (iRes.reason as Error).message };
+      }
+
+      setState(prev =>
+        prev.phase !== "active" ? prev : {
+          ...prev,
+          android: aUpdate ?? prev.android,
+          ios: iUpdate ?? prev.ios,
+        }
+      );
+
+      // Reschedule — tick bails early next time if pendingRef is empty
+      if (!cancelled) pollRef.current = setTimeout(tick, 30_000);
     }
 
-    pollRef.current = setTimeout(poll, 30_000);
+    pollRef.current = setTimeout(tick, 30_000);
     return () => {
       cancelled = true;
       if (pollRef.current) clearTimeout(pollRef.current);
     };
-  }, [buildState, onDone]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.phase]);
 
   const handleTrigger = useCallback(async () => {
-    if (buildState.status === "triggering" || buildState.status === "building") return;
-    setBuildState({ status: "triggering" });
+    if (state.phase === "triggering" || state.phase === "active") return;
+    setState({ phase: "triggering" });
     try {
       const res = await fetch("/api/ai/eas-build", {
         method: "POST",
@@ -523,222 +572,167 @@ function DeviceBuildSection({
           navigation: sleekApp.navigation,
         }),
       });
-      const data = (await res.json()) as { buildId?: string; error?: string };
+      const data = (await res.json()) as { androidBuildId?: string; iosBuildId?: string; error?: string };
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
-      if (!data.buildId) throw new Error("No buildId returned");
+      if (!data.androidBuildId || !data.iosBuildId) throw new Error("Missing build IDs from server");
 
-      startedAtRef.current = Date.now();
+      const now = Date.now();
+      startedAtRef.current = now;
       setElapsed(0);
-      setBuildState({ status: "building", buildId: data.buildId });
-      onBuildId(data.buildId);
-    } catch (err) {
-      setBuildState({
-        status: "error",
-        message: err instanceof Error ? err.message : "Failed to start build",
+      setState({
+        phase: "active", startedAt: now,
+        android: { buildId: data.androidBuildId, status: "building" },
+        ios:     { buildId: data.iosBuildId,     status: "building" },
       });
+      onPersist({ easAndroidBuildId: data.androidBuildId, easIosBuildId: data.iosBuildId });
+    } catch (err) {
+      setState({ phase: "trigger-error", message: err instanceof Error ? err.message : "Failed to start builds" });
     }
-  }, [buildState.status, sleekApp, onBuildId]);
+  }, [state.phase, sleekApp, onPersist]);
 
-  // ── Done ──
-  if (buildState.status === "done") {
+  const isActive = state.phase === "active";
+  const android = isActive ? state.android : undefined;
+  const ios     = isActive ? state.ios     : undefined;
+  const allDone = isActive && android?.status !== "building" && ios?.status !== "building";
+
+  // ── Active: all terminal → show results ──
+  if (isActive && allDone) {
     return (
-      <div style={{
-        borderRadius: 14,
-        border: "1px solid rgba(52,211,153,0.25)",
-        background: "rgba(52,211,153,0.05)",
-        padding: "13px",
-        flexShrink: 0,
-        display: "flex",
-        flexDirection: "column",
-        gap: 10,
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-          <div style={{
-            width: 22, height: 22, borderRadius: 7,
-            background: "rgba(52,211,153,0.18)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            flexShrink: 0,
-          }}>
-            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="#34d399" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="1.5 6 4.5 9 10.5 3" />
-            </svg>
-          </div>
-          <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#34d399", marginBottom: 1 }}>Android APK ready</div>
-            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>Scan to install on your device</div>
-          </div>
+      <div style={{ borderRadius: 14, flexShrink: 0, border: "1px solid rgba(52,211,153,0.2)", background: "rgba(52,211,153,0.04)", overflow: "hidden" }}>
+        <div style={{ height: 1.5, background: "linear-gradient(90deg, rgba(52,211,153,0.8) 0%, transparent 100%)" }} />
+        <div style={{ padding: "12px 13px", display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#34d399" }}>Builds complete</div>
+          {android && <PlatformResult platform="android" build={android} />}
+          {ios     && <PlatformResult platform="ios"     build={ios}     />}
         </div>
-        <div style={{ display: "flex", justifyContent: "center" }}>
-          <div style={{ padding: 8, background: "white", borderRadius: 10, boxShadow: "0 4px 16px rgba(0,0,0,0.5)" }}>
-            <RealQRCode url={buildState.artifactUrl} />
-          </div>
-        </div>
-        <a
-          href={buildState.artifactUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            display: "block",
-            textAlign: "center",
-            fontSize: 11,
-            color: "#34d399",
-            textDecoration: "none",
-            padding: "7px 0",
-            borderRadius: 8,
-            border: "1px solid rgba(52,211,153,0.25)",
-            background: "rgba(52,211,153,0.07)",
-          }}
-        >
-          Download APK →
-        </a>
       </div>
     );
   }
 
-  // ── Triggering / Building ──
-  if (buildState.status === "triggering" || buildState.status === "building") {
-    const isTrigger = buildState.status === "triggering";
+  // ── Active: still building ──
+  if (isActive) {
     const pct = Math.min(90, Math.round((elapsed / 600) * 90));
     return (
-      <div style={{
-        borderRadius: 14,
-        border: "1px solid rgba(204,255,0,0.2)",
-        background: "rgba(204,255,0,0.04)",
-        padding: "13px",
-        flexShrink: 0,
-      }}>
+      <div style={{ borderRadius: 14, flexShrink: 0, border: "1px solid rgba(204,255,0,0.2)", background: "rgba(204,255,0,0.04)", padding: "13px" }}>
         <style>{`@keyframes evSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
         <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 10 }}>
-          <div style={{
-            width: 22, height: 22, borderRadius: 7,
-            border: "1.5px solid rgba(204,255,0,0.45)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            flexShrink: 0,
-            animation: isTrigger ? "evSpin 1s linear infinite" : "none",
-          }}>
-            {isTrigger ? (
-              <div style={{ width: 8, height: 8, borderRadius: "50%", borderTop: "1.5px solid #CCFF00", borderRight: "1.5px solid transparent" }} />
-            ) : (
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#CCFF00" strokeWidth="2.2" strokeLinecap="round">
-                <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-              </svg>
-            )}
-          </div>
+          <div style={{ width: 20, height: 20, borderRadius: "50%", border: "2px solid rgba(204,255,0,0.15)", borderTopColor: "#CCFF00", animation: "evSpin 1s linear infinite", flexShrink: 0 }} />
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#CCFF00", marginBottom: 2 }}>
-              {isTrigger ? "Queuing build…" : "Building APK…"}
-            </div>
-            {!isTrigger && (
-              <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>
-                {fmtElapsed(elapsed)} elapsed · ~5–10 min total
-              </div>
-            )}
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#CCFF00" }}>Building iOS & Android…</div>
+            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>{fmtElapsed(elapsed)} · ~5–10 min</div>
           </div>
         </div>
-        {!isTrigger && (
-          <div style={{ height: 3, borderRadius: 2, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
-            <div style={{
-              height: "100%",
-              width: `${pct}%`,
-              borderRadius: 2,
-              background: "linear-gradient(90deg, #CCFF00, #7aff00)",
-              transition: "width 1s linear",
-              boxShadow: "0 0 8px rgba(204,255,0,0.5)",
-            }} />
-          </div>
-        )}
-        <div style={{ marginTop: 8, fontSize: 10, color: "rgba(255,255,255,0.22)", textAlign: "center" }}>
-          EAS Build · Android · internal distribution
+        <div style={{ height: 3, borderRadius: 2, background: "rgba(255,255,255,0.08)", overflow: "hidden", marginBottom: 10 }}>
+          <div style={{ height: "100%", width: `${pct}%`, borderRadius: 2, background: "linear-gradient(90deg, #CCFF00, #7aff00)", transition: "width 1s linear", boxShadow: "0 0 8px rgba(204,255,0,0.5)" }} />
         </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+          <PlatformStatusRow label="Android APK" build={android} />
+          <PlatformStatusRow label="iOS Simulator" build={ios} />
+        </div>
+      </div>
+    );
+  }
+
+  // ── Triggering ──
+  if (state.phase === "triggering") {
+    return (
+      <div style={{ borderRadius: 14, flexShrink: 0, border: "1px solid rgba(204,255,0,0.2)", background: "rgba(204,255,0,0.04)", padding: "13px", display: "flex", alignItems: "center", gap: 10 }}>
+        <style>{`@keyframes evSpinT{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+        <div style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid rgba(204,255,0,0.15)", borderTopColor: "#CCFF00", animation: "evSpinT 0.8s linear infinite", flexShrink: 0 }} />
+        <span style={{ fontSize: 12, fontWeight: 700, color: "#CCFF00" }}>Queuing builds…</span>
       </div>
     );
   }
 
   // ── Idle / Error ──
-  const isError = buildState.status === "error";
+  const isError = state.phase === "trigger-error";
   return (
-    <div style={{
-      borderRadius: 14,
-      overflow: "hidden",
-      border: `1px solid ${isError ? "rgba(239,68,68,0.3)" : "rgba(124,92,252,0.25)"}`,
-      background: isError ? "rgba(239,68,68,0.05)" : "rgba(124,92,252,0.04)",
-      flexShrink: 0,
-    }}>
-      <div style={{
-        height: 1.5,
-        background: isError
-          ? "linear-gradient(90deg, rgba(239,68,68,0.8) 0%, transparent 100%)"
-          : "linear-gradient(90deg, rgba(124,92,252,0.9) 0%, rgba(79,142,255,0.5) 60%, transparent 100%)",
-      }} />
-
+    <div style={{ borderRadius: 14, overflow: "hidden", flexShrink: 0, border: `1px solid ${isError ? "rgba(239,68,68,0.3)" : "rgba(124,92,252,0.25)"}`, background: isError ? "rgba(239,68,68,0.05)" : "rgba(124,92,252,0.04)" }}>
+      <div style={{ height: 1.5, background: isError ? "linear-gradient(90deg, rgba(239,68,68,0.8) 0%, transparent 100%)" : "linear-gradient(90deg, rgba(124,92,252,0.9) 0%, rgba(79,142,255,0.5) 60%, transparent 100%)" }} />
       <div style={{ padding: "12px 13px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 8 }}>
-          <div style={{
-            width: 28, height: 28, borderRadius: 9,
-            background: isError ? "rgba(239,68,68,0.15)" : "rgba(124,92,252,0.15)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            flexShrink: 0,
-          }}>
+          <div style={{ width: 28, height: 28, borderRadius: 9, flexShrink: 0, background: isError ? "rgba(239,68,68,0.15)" : "rgba(124,92,252,0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
             {isError ? (
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="rgba(239,68,68,0.9)" strokeWidth="2" strokeLinecap="round">
                 <line x1="2" y1="2" x2="10" y2="10" /><line x1="10" y1="2" x2="2" y2="10" />
               </svg>
             ) : (
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(124,92,252,0.9)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="5" y="2" width="14" height="20" rx="2" />
-                <line x1="12" y1="18" x2="12.01" y2="18" strokeWidth="2.5" />
+                <rect x="5" y="2" width="14" height="20" rx="2" /><line x1="12" y1="18" x2="12.01" y2="18" strokeWidth="2.5" />
               </svg>
             )}
           </div>
           <div>
             <div style={{ fontSize: 12.5, fontWeight: 700, color: isError ? "rgba(239,68,68,0.9)" : "rgba(255,255,255,0.85)", marginBottom: 1 }}>
-              {isError ? "Build failed" : "Build for device"}
+              {isError ? "Build failed" : "Build for iOS & Android"}
             </div>
             <div style={{ fontSize: 10, color: "rgba(255,255,255,0.28)" }}>
-              {isError
-                ? (buildState.message).slice(0, 60)
-                : "Install the real APK on Android"}
+              {isError ? state.message.slice(0, 60) : "Install the real app on your device"}
             </div>
           </div>
         </div>
-
         {!isError && (
           <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 10 }}>
-            {["Compile React Native → Android APK", "Download & install via QR scan"].map((step) => (
-              <div key={step} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {["Android: side-loadable APK via QR scan", "iOS: simulator build via Xcode"].map((s) => (
+              <div key={s} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <div style={{ width: 3, height: 3, borderRadius: "50%", background: "rgba(124,92,252,0.5)", flexShrink: 0 }} />
-                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>{step}</span>
+                <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)" }}>{s}</span>
               </div>
             ))}
           </div>
         )}
-
-        <button
-          type="button"
-          onClick={handleTrigger}
-          style={{
-            width: "100%",
-            padding: "9px 0",
-            borderRadius: 9,
-            border: `1px solid ${isError ? "rgba(239,68,68,0.4)" : "rgba(124,92,252,0.45)"}`,
-            background: isError
-              ? "rgba(239,68,68,0.08)"
-              : "linear-gradient(135deg, rgba(124,92,252,0.2) 0%, rgba(79,142,255,0.1) 100%)",
-            color: isError ? "rgba(239,68,68,0.85)" : "rgba(255,255,255,0.85)",
-            fontSize: 12.5,
-            fontWeight: 700,
-            cursor: "pointer",
-            letterSpacing: 0.1,
-            boxShadow: isError ? "none" : "0 0 14px rgba(124,92,252,0.12)",
-            fontFamily: "inherit",
-            transition: "all 0.15s ease",
-          }}
-        >
-          {isError ? "Retry build →" : "Build for Android →"}
+        <button type="button" onClick={handleTrigger} style={{ width: "100%", padding: "9px 0", borderRadius: 9, border: `1px solid ${isError ? "rgba(239,68,68,0.4)" : "rgba(124,92,252,0.45)"}`, background: isError ? "rgba(239,68,68,0.08)" : "linear-gradient(135deg, rgba(124,92,252,0.2) 0%, rgba(79,142,255,0.1) 100%)", color: isError ? "rgba(239,68,68,0.85)" : "rgba(255,255,255,0.85)", fontSize: 12.5, fontWeight: 700, cursor: "pointer", letterSpacing: 0.1, boxShadow: isError ? "none" : "0 0 14px rgba(124,92,252,0.12)", fontFamily: "inherit", transition: "all 0.15s ease" }}>
+          {isError ? "Retry →" : "Build for iOS & Android →"}
         </button>
       </div>
     </div>
   );
+}
+
+function PlatformStatusRow({ label, build }: { label: string; build?: PlatformBuild }) {
+  const st = build?.status ?? "building";
+  const color = st === "done" ? "#34d399" : st === "error" ? "#ef4444" : "rgba(204,255,0,0.7)";
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+      <span style={{ fontSize: 10, color, fontWeight: 700, width: 10, textAlign: "center", flexShrink: 0 }}>
+        {st === "done" ? "✓" : st === "error" ? "✗" : "●"}
+      </span>
+      <span style={{ fontSize: 10, color: "rgba(255,255,255,0.45)" }}>{label}</span>
+      {st === "building" && <span style={{ fontSize: 9, color: "rgba(255,255,255,0.22)", marginLeft: "auto" }}>building…</span>}
+    </div>
+  );
+}
+
+function PlatformResult({ platform, build }: { platform: "android" | "ios"; build: PlatformBuild }) {
+  const isAndroid = platform === "android";
+  if (build.status === "error") {
+    return (
+      <div style={{ fontSize: 10, color: "rgba(239,68,68,0.7)", padding: "6px 8px", borderRadius: 7, background: "rgba(239,68,68,0.07)" }}>
+        {isAndroid ? "Android" : "iOS"}: {build.error ?? "Build failed"}
+      </div>
+    );
+  }
+  if (build.status === "done" && build.artifactUrl) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ fontSize: 10.5, fontWeight: 600, color: "rgba(255,255,255,0.55)" }}>
+          {isAndroid ? "🤖 Android — scan to install APK" : "🍎 iOS — download simulator build"}
+        </div>
+        {isAndroid && (
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <div style={{ padding: 7, background: "white", borderRadius: 8, boxShadow: "0 4px 12px rgba(0,0,0,0.4)" }}>
+              <RealQRCode url={build.artifactUrl} />
+            </div>
+          </div>
+        )}
+        <a href={build.artifactUrl} target="_blank" rel="noopener noreferrer"
+          style={{ display: "block", textAlign: "center", fontSize: 11, color: "#34d399", textDecoration: "none", padding: "6px 0", borderRadius: 7, border: "1px solid rgba(52,211,153,0.2)", background: "rgba(52,211,153,0.06)" }}>
+          {isAndroid ? "Download APK →" : "Download Simulator Build →"}
+        </a>
+      </div>
+    );
+  }
+  return null;
 }
 
 // ── Main QR Panel ─────────────────────────────────────────────────────────────
@@ -770,15 +764,14 @@ export default function QRPanel() {
     setSleekApp(updatedApp);
   }, [setSleekApp]);
 
-  const handleBuildId = useCallback((buildId: string) => {
-    if (!sleekApp) return;
-    setSleekApp({ ...sleekApp, easBuildId: buildId });
-  }, [sleekApp, setSleekApp]);
+  const sleekAppRef = useRef(sleekApp);
+  useEffect(() => { sleekAppRef.current = sleekApp; }, [sleekApp]);
 
-  const handleBuildDone = useCallback((artifactUrl: string) => {
-    if (!sleekApp) return;
-    setSleekApp({ ...sleekApp, easBuildUrl: artifactUrl });
-  }, [sleekApp, setSleekApp]);
+  const handlePersist = useCallback((update: Parameters<React.ComponentProps<typeof DeviceBuildSection>["onPersist"]>[0]) => {
+    const app = sleekAppRef.current;
+    if (!app) return;
+    setSleekApp({ ...app, ...update });
+  }, [setSleekApp]);
 
   const hasScreens = sleekApp && sleekApp.screens.length > 0;
 
@@ -880,8 +873,7 @@ export default function QRPanel() {
       {hasScreens && sleekApp.isFunctional && (
         <DeviceBuildSection
           sleekApp={sleekApp}
-          onBuildId={handleBuildId}
-          onDone={handleBuildDone}
+          onPersist={handlePersist}
         />
       )}
 

@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/nextauth";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
-import { buildProjectTarGz, triggerAndroidBuild } from "@/lib/evermade/eas/client";
+import {
+  buildProjectTarGz,
+  triggerAndroidBuild,
+  triggerIosBuild,
+} from "@/lib/evermade/eas/client";
 import { canExportApp, normalizePlan, type PlanId } from "@/lib/evermade/plans";
 
 async function getUserPlan(userId: string): Promise<PlanId> {
@@ -23,7 +27,6 @@ async function uploadArchive(buf: Buffer, slug: string): Promise<string> {
   const supabase = createServiceSupabaseClient();
   const BUCKET = "eas-archives";
 
-  // Create bucket if not yet exists — ignore "already exists" errors
   const { error: bucketErr } = await supabase.storage.createBucket(BUCKET, {
     public: true,
     fileSizeLimit: 50 * 1024 * 1024,
@@ -77,6 +80,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Build tar.gz once, upload once — reuse for both platforms
     const tarGz = await buildProjectTarGz({
       appName: body.appName,
       screens: body.screens,
@@ -84,9 +88,16 @@ export async function POST(req: NextRequest) {
     });
 
     const archiveUrl = await uploadArchive(tarGz, userId || "anon");
-    const buildId = await triggerAndroidBuild(archiveUrl, body.appName);
 
-    return NextResponse.json({ buildId });
+    // Trigger Android + iOS simultaneously
+    const [androidBuildId, iosBuildId] = await Promise.all([
+      triggerAndroidBuild(archiveUrl, body.appName),
+      triggerIosBuild(archiveUrl, body.appName),
+    ]);
+
+    console.log("[EAS] triggered builds — Android:", androidBuildId, "iOS:", iosBuildId);
+
+    return NextResponse.json({ androidBuildId, iosBuildId });
   } catch (err) {
     console.error("[POST /api/ai/eas-build]", err);
     return NextResponse.json(
