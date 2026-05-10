@@ -27,12 +27,9 @@ async function uploadArchive(buf: Buffer, slug: string): Promise<string> {
   const supabase = createServiceSupabaseClient();
   const BUCKET = "eas-archives";
 
-  // Attempt to create bucket — ignore errors (bucket likely already exists).
-  // Upload failure will surface any real storage misconfiguration.
-  await supabase.storage.createBucket(BUCKET, {
-    public: true,
-    fileSizeLimit: 50 * 1024 * 1024,
-  });
+  // Create bucket if missing, then force public visibility regardless of prior state.
+  await supabase.storage.createBucket(BUCKET, { public: true, fileSizeLimit: 50 * 1024 * 1024 });
+  await supabase.storage.updateBucket(BUCKET, { public: true, fileSizeLimit: 50 * 1024 * 1024 });
 
   const filePath = `${slug}/${Date.now()}.tar.gz`;
   const { error: uploadErr } = await supabase.storage
@@ -42,6 +39,7 @@ async function uploadArchive(buf: Buffer, slug: string): Promise<string> {
   if (uploadErr) throw new Error(`Archive upload failed: ${uploadErr.message}`);
 
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(filePath);
+  console.log("[EAS] archive URL:", data.publicUrl);
   return data.publicUrl;
 }
 
