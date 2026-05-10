@@ -1,6 +1,6 @@
 import type { SleekScreen } from "./client";
 
-const MODEL = "gpt-4o";
+const MODEL = "gpt-4o-mini";
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
 const SYSTEM_PROMPT = `You are a senior React Native engineer. Convert mobile screen designs into production-quality React Native + TypeScript code.

@@ -1,6 +1,6 @@
 import type { NavigationBundle } from "@/lib/editor/EditorContext";
 
-const MODEL = "gpt-4o";
+const MODEL = "gpt-4o-mini";
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
 
 export interface ScreenForNav {
