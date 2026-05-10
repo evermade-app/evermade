@@ -127,6 +127,23 @@ function FunctionalizeSection({ sleekApp, onDone }: {
 
     const updatedScreens: SleekPreviewScreen[] = sleekApp.screens.map((s) => ({ ...s }));
     let navBundle: { appTsx: string; navigatorTsx: string } | null = null;
+    let navTimedOut = false;
+    let finished = false;
+    let navTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const finishWithScreens = () => {
+      if (finished) return;
+      finished = true;
+      if (navTimeoutId) { clearTimeout(navTimeoutId); navTimeoutId = null; }
+      console.log("[functionalize] done — calling /api/ai/snack");
+      setFxState({ status: "done" });
+      onDone({
+        ...sleekApp,
+        screens: updatedScreens,
+        navigation: navBundle ?? undefined,
+        isFunctional: true,
+      });
+    };
 
     try {
       const res = await fetch("/api/ai/functionalize", {
@@ -153,18 +170,6 @@ function FunctionalizeSection({ sleekApp, onDone }: {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
-      let navTimeoutId: ReturnType<typeof setTimeout> | null = null;
-      let navTimedOut = false;
-
-      const finishWithScreens = () => {
-        setFxState({ status: "done" });
-        onDone({
-          ...sleekApp,
-          screens: updatedScreens,
-          navigation: navBundle ?? undefined,
-          isFunctional: true,
-        });
-      };
 
       while (true) {
         const { done, value } = await reader.read();
@@ -201,13 +206,13 @@ function FunctionalizeSection({ sleekApp, onDone }: {
             setFxState({ status: "navigating" });
             navTimeoutId = setTimeout(() => {
               navTimedOut = true;
+              console.log("[functionalize] nav timeout — skipping navigation");
               reader.cancel();
             }, 15_000);
           } else if (event.type === "navigation_done") {
             if (navTimeoutId) { clearTimeout(navTimeoutId); navTimeoutId = null; }
             navBundle = { appTsx: event.appTsx, navigatorTsx: event.navigatorTsx };
           } else if (event.type === "done") {
-            if (navTimeoutId) { clearTimeout(navTimeoutId); navTimeoutId = null; }
             finishWithScreens();
           } else if (event.type === "error") {
             if (navTimeoutId) { clearTimeout(navTimeoutId); navTimeoutId = null; }
@@ -216,10 +221,12 @@ function FunctionalizeSection({ sleekApp, onDone }: {
         }
       }
 
-      // Nav step timed out — stream was cancelled, proceed without navigation bundle
-      if (navTimedOut) finishWithScreens();
+      // Stream closed — finish if not already done (covers nav timeout + server closing without `done`)
+      if (!finished) finishWithScreens();
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
+      // reader.cancel() from nav timeout can cause a throw in some browsers — still finish
+      if (navTimedOut && !finished) { finishWithScreens(); return; }
       setFxState({ status: "error", message: err instanceof Error ? err.message : "Unknown error" });
     }
   }, [sleekApp, fxState.status, onDone]);
@@ -782,6 +789,7 @@ export default function QRPanel() {
     setSleekApp(updatedApp);
     setSnackLoading(true);
     try {
+      console.log("calling snack API", updatedApp.appName, updatedApp.screens.length, "screens");
       const res = await fetch("/api/ai/snack", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
