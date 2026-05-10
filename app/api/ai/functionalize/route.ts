@@ -1,8 +1,12 @@
 import { type NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/nextauth";
-import { generateNavigation, buildFallbackNavigation } from "@/lib/evermade/sleek/nav-generator";
-import type { NavigationBundle } from "@/lib/editor/EditorContext";
+import {
+  generateExpoStarterScreen,
+  buildExpoStarterTabsLayout,
+  buildExpoStarterRootLayout,
+  type ScreenForTabs,
+} from "@/lib/evermade/sleek/expo-starter";
 
 interface InputScreen {
   id: string;
@@ -44,7 +48,6 @@ function sseChunk(event: SSEEvent): Uint8Array {
 }
 
 // Derive a stable PascalCase component name from the screen's display name.
-// Mirrors the algorithm in rn-converter so names are consistent.
 function toComponentName(screenName: string): string {
   const safe = screenName.replace(/[^a-zA-Z0-9 ]/g, "").trim();
   return (
@@ -55,37 +58,19 @@ function toComponentName(screenName: string): string {
   );
 }
 
-// Minimal placeholder screen — dark background, centred screen title.
-// No OpenAI call required; acts as a structural scaffold.
-function buildPlaceholderScreen(componentName: string, screenName: string): string {
-  const label = screenName.replace(/Screen$/i, "").trim() || screenName;
-  return `import React from "react";
-import { View, Text, StyleSheet, SafeAreaView } from "react-native";
-
-export default function ${componentName}() {
-  return (
-    <SafeAreaView style={styles.root}>
-      <View style={styles.center}>
-        <Text style={styles.title}>${label}</Text>
-        <Text style={styles.sub}>Screen placeholder</Text>
-      </View>
-    </SafeAreaView>
-  );
+function isOnboarding(screenName: string): boolean {
+  return screenName.toLowerCase().includes("onboard");
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#080818" },
-  center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 8 },
-  title: { fontSize: 28, fontWeight: "700", color: "#CCFF00", letterSpacing: -0.5 },
-  sub: { fontSize: 13, color: "rgba(255,255,255,0.35)" },
-});
-`;
-}
+const SCREEN_DELAY_MS = 3_000;
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
 // ── POST /api/ai/functionalize ──────────────────────────────────────────────
 // Streams SSE events:
-//   1. Emits screen_done for each screen instantly (placeholder code, no AI call).
-//   2. Calls GPT-4o-mini once to generate navigation files.
+//   1. For each screen: calls GPT-4o-mini to generate a real NativeWind screen
+//      using the expo-starter template (Container + NativeWind className styling).
+//   2. Generates the Expo Router tabs layout from screen names.
+//
 // Body: { appName: string, screens: InputScreen[], prompt?: string }
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -100,7 +85,6 @@ export async function POST(req: NextRequest) {
   };
 
   const appName = body?.appName?.trim() ?? "My App";
-  const appPrompt = body?.prompt?.trim() ?? appName;
   const screens: InputScreen[] = Array.isArray(body?.screens) ? body.screens : [];
 
   if (screens.length === 0) {
@@ -112,33 +96,43 @@ export async function POST(req: NextRequest) {
       const send = (event: SSEEvent) => controller.enqueue(sseChunk(event));
 
       try {
-        // ── Phase 1: Placeholder screens (no API calls) ───────────────────────
-        const screensForNav: Array<{ screenName: string; componentName: string }> = [];
+        // ── Phase 1: Generate screens via GPT-4o-mini (expo-starter NativeWind) ──
+        const screensForNav: ScreenForTabs[] = [];
 
         for (let i = 0; i < screens.length; i++) {
+          if (i > 0) await sleep(SCREEN_DELAY_MS);
+
           const screen = screens[i]!;
-          send({ type: "progress", step: "screen", index: i, total: screens.length, name: screen.name });
-
           const componentName = toComponentName(screen.name);
-          const rnCode = buildPlaceholderScreen(componentName, screen.name);
+          const onboarding = isOnboarding(screen.name);
 
-          screensForNav.push({ screenName: screen.name, componentName });
+          send({
+            type: "progress",
+            step: "screen",
+            index: i,
+            total: screens.length,
+            name: screen.name,
+          });
 
+          let rnCode: string;
+          try {
+            rnCode = await generateExpoStarterScreen(screen.name, componentName, screen.html);
+          } catch (err) {
+            console.warn(`[functionalize] screen "${screen.name}" failed, using placeholder:`, err);
+            rnCode = buildPlaceholderScreen(componentName, screen.name);
+          }
+
+          screensForNav.push({ screenName: screen.name, componentName, isOnboarding: onboarding });
           send({ type: "screen_done", index: i, id: screen.id, componentName, rnCode });
         }
 
-        // ── Phase 2: Navigation (one GPT-4o-mini call) ────────────────────────
-        send({ type: "progress", step: "navigation", message: "Generating navigation…" });
+        // ── Phase 2: Generate Expo Router tabs layout ─────────────────────────
+        send({ type: "progress", step: "navigation", message: "Building navigation…" });
 
-        let navigation: NavigationBundle;
-        try {
-          navigation = await generateNavigation(appName, appPrompt, screensForNav);
-        } catch (navErr) {
-          console.warn("[functionalize] nav generation failed, using fallback:", navErr);
-          navigation = buildFallbackNavigation(appName, screensForNav);
-        }
+        const navigatorTsx = buildExpoStarterTabsLayout(screensForNav);
+        const appTsx = buildExpoStarterRootLayout(appName);
 
-        send({ type: "navigation_done", appTsx: navigation.appTsx, navigatorTsx: navigation.navigatorTsx });
+        send({ type: "navigation_done", appTsx, navigatorTsx });
         send({ type: "done" });
       } catch (err) {
         console.error("[/api/ai/functionalize]", err);
@@ -157,4 +151,24 @@ export async function POST(req: NextRequest) {
       Connection: "keep-alive",
     },
   });
+}
+
+// Fallback placeholder if GPT call fails for a screen
+function buildPlaceholderScreen(componentName: string, screenName: string): string {
+  const label = screenName.replace(/Screen$/i, "").trim() || screenName;
+  return `import { Container } from "@/components/container";
+import { Text } from "@/components/ui/text";
+import { View } from "react-native";
+
+export default function ${componentName}() {
+  return (
+    <Container className="p-6">
+      <View className="flex-1 items-center justify-center gap-3">
+        <Text variant="h3" className="text-foreground">${label}</Text>
+        <Text className="text-muted-foreground text-sm">Screen placeholder</Text>
+      </View>
+    </Container>
+  );
+}
+`;
 }

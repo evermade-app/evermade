@@ -115,18 +115,9 @@ function tarEntry(filePath: string, content: Buffer): Buffer {
   return Buffer.concat([header, padded]);
 }
 
-export async function buildProjectTarGz(options: {
-  appName: string;
-  screens: ScreenCode[];
-  navigation?: NavigationFiles;
-}): Promise<Buffer> {
-  const zipBuf = await assembleExpoZip({
-    appName: options.appName,
-    screens: options.screens,
-    screenshots: [],
-    navigation: options.navigation,
-  });
-
+// Converts any JSZip-compatible Buffer to a POSIX tar.gz.
+// Used by both the legacy expo-assembler and the new expo-starter pipeline.
+export async function zipBufToTarGz(zipBuf: Buffer): Promise<Buffer> {
   const zip = await JSZip.loadAsync(zipBuf);
   const chunks: Buffer[] = [];
 
@@ -141,6 +132,20 @@ export async function buildProjectTarGz(options: {
 
   chunks.push(Buffer.alloc(1024));
   return gzipSync(Buffer.concat(chunks));
+}
+
+export async function buildProjectTarGz(options: {
+  appName: string;
+  screens: ScreenCode[];
+  navigation?: NavigationFiles;
+}): Promise<Buffer> {
+  const zipBuf = await assembleExpoZip({
+    appName: options.appName,
+    screens: options.screens,
+    screenshots: [],
+    navigation: options.navigation,
+  });
+  return zipBufToTarGz(zipBuf);
 }
 
 // ── EAS build trigger operations ───────────────────────────────────────────────

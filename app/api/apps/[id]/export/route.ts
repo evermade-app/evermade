@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/nextauth";
-import { assembleExpoZip } from "@/lib/evermade/sleek/expo-assembler";
+import {
+  assembleExpoStarterZip,
+  buildExpoStarterTabsLayout,
+  buildExpoStarterRootLayout,
+  type ExpoStarterScreen,
+} from "@/lib/evermade/sleek/expo-starter";
 import { getCachedApp } from "@/app/api/generate/route";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import { canExportApp, normalizePlan, type PlanId } from "@/lib/evermade/plans";
@@ -55,15 +60,23 @@ export async function GET(
       );
     }
 
-    const zip = await assembleExpoZip({
-      appName: app.appName,
-      screens: app.screens.map((s) => ({
-        screenName: s.name,
-        componentName: s.componentName,
-        code: s.rnCode,
-      })),
-      screenshots: app.screens.map((s) => ({ name: s.name, url: s.screenshotUrl })),
-    });
+    const expoScreens: ExpoStarterScreen[] = app.screens.map((s) => ({
+      screenName: s.name,
+      componentName: s.componentName,
+      code: s.rnCode,
+      isOnboarding: s.name.toLowerCase().includes("onboard"),
+    }));
+    const screensForNav = expoScreens.map((s) => ({
+      screenName: s.screenName,
+      componentName: s.componentName,
+      isOnboarding: s.isOnboarding,
+    }));
+    const zip = await assembleExpoStarterZip(
+      app.appName,
+      expoScreens,
+      buildExpoStarterTabsLayout(screensForNav),
+      buildExpoStarterRootLayout(app.appName),
+    );
 
     const filename = `${app.appName.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase()}-expo.zip`;
 
@@ -121,7 +134,20 @@ export async function POST(
       return NextResponse.json({ error: "appName and screens are required" }, { status: 400 });
     }
 
-    const zip = await assembleExpoZip({ appName, screens, screenshots: [], navigation });
+    const expoScreens: ExpoStarterScreen[] = screens.map((s) => ({
+      screenName: s.screenName,
+      componentName: s.componentName,
+      code: s.code,
+      isOnboarding: s.screenName.toLowerCase().includes("onboard"),
+    }));
+    const screensForNav = expoScreens.map((s) => ({
+      screenName: s.screenName,
+      componentName: s.componentName,
+      isOnboarding: s.isOnboarding,
+    }));
+    const tabsLayout = navigation?.navigatorTsx ?? buildExpoStarterTabsLayout(screensForNav);
+    const rootLayout = navigation?.appTsx ?? buildExpoStarterRootLayout(appName);
+    const zip = await assembleExpoStarterZip(appName, expoScreens, tabsLayout, rootLayout);
     const filename = `${appName.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase()}-expo.zip`;
 
     return new NextResponse(new Uint8Array(zip), {

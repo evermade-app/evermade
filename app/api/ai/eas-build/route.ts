@@ -3,10 +3,16 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/nextauth";
 import { createServiceSupabaseClient } from "@/lib/supabase/server";
 import {
-  buildProjectTarGz,
+  zipBufToTarGz,
   triggerAndroidBuild,
   triggerIosBuild,
 } from "@/lib/evermade/eas/client";
+import {
+  assembleExpoStarterZip,
+  buildExpoStarterTabsLayout,
+  buildExpoStarterRootLayout,
+  type ExpoStarterScreen,
+} from "@/lib/evermade/sleek/expo-starter";
 import { canExportApp, normalizePlan, type PlanId } from "@/lib/evermade/plans";
 
 async function getUserPlan(userId: string): Promise<PlanId> {
@@ -77,12 +83,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Build tar.gz once, upload once — reuse for both platforms
-    const tarGz = await buildProjectTarGz({
-      appName: body.appName,
-      screens: body.screens,
-      navigation: body.navigation,
-    });
+    // Assemble expo-starter ZIP then convert to tar.gz for EAS
+    const expoScreens: ExpoStarterScreen[] = body.screens.map((s) => ({
+      componentName: s.componentName,
+      screenName: s.screenName,
+      code: s.code,
+      isOnboarding: s.screenName.toLowerCase().includes("onboard"),
+    }));
+    const screensForNav = expoScreens.map((s) => ({
+      componentName: s.componentName,
+      screenName: s.screenName,
+      isOnboarding: s.isOnboarding,
+    }));
+    const tabsLayout = body.navigation?.navigatorTsx ?? buildExpoStarterTabsLayout(screensForNav);
+    const rootLayout = body.navigation?.appTsx ?? buildExpoStarterRootLayout(body.appName);
+
+    const zipBuf = await assembleExpoStarterZip(body.appName, expoScreens, tabsLayout, rootLayout);
+    const tarGz = await zipBufToTarGz(zipBuf);
 
     const archiveUrl = await uploadArchive(tarGz, userId || "anon");
 
