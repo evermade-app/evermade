@@ -218,7 +218,7 @@ export async function triggerIosBuild(
       type: "MANAGED",
       projectRootDirectory: ".",
       projectArchive: { type: "URL", url: archiveUrl },
-      buildType: "SIMULATOR",
+      buildType: "RELEASE",
     },
     metadata: buildMetadata(appName, "SIMULATOR"),
   });
