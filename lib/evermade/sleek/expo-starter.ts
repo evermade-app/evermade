@@ -373,16 +373,8 @@ module.exports = config;
 @import "uniwind";
 
 @theme {
-  --font-light: "Nunito_300Light";
-  --font-normal: "Nunito_400Regular";
-  --font-medium: "Nunito_500Medium";
-  --font-semibold: "Nunito_600SemiBold";
-  --font-bold: "Nunito_700Bold";
-  --font-extrabold: "Nunito_800ExtraBold";
-  --font-black: "Nunito_900Black";
-  --font-heading-normal: "Recursive_400Regular";
-  --font-heading-bold: "Recursive_700Bold";
-  --font-mono: "JetBrainsMono_400Regular";
+  --font-sans: System;
+  --font-mono: monospace;
   --radius: 1rem;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
