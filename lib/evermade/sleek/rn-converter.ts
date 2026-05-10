@@ -17,10 +17,50 @@ RULES:
 - Status bar style: dark-content for light bg, light-content for dark bg
 - Return ONLY the TypeScript code — no markdown, no explanation`;
 
+const INTER_SCREEN_DELAY_MS = 3_000;
+const RETRY_DELAY_MS = 10_000;
+const MAX_RETRIES = 3;
+
 interface ScreenCode {
   screenName: string;
   componentName: string;
   code: string;
+}
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+
+async function callOpenAI(
+  messages: Array<{ role: string; content: string | Array<{ type: string; text?: string; image_url?: { url: string } }> }>,
+  apiKey: string,
+  attempt = 0
+): Promise<string> {
+  const res = await fetch(OPENAI_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({ model: MODEL, messages, max_tokens: 4096, temperature: 0.2 }),
+  });
+
+  if (res.status === 429) {
+    const body = await res.text().catch(() => "");
+    if (attempt < MAX_RETRIES) {
+      console.warn(`[rn-converter] 429 rate limit (attempt ${attempt + 1}/${MAX_RETRIES}). Body: ${body}. Waiting ${RETRY_DELAY_MS / 1000}s…`);
+      await sleep(RETRY_DELAY_MS);
+      return callOpenAI(messages, apiKey, attempt + 1);
+    }
+    throw new Error(`OpenAI 429 after ${MAX_RETRIES} retries: ${body}`);
+  }
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error(`[rn-converter] OpenAI ${res.status}: ${body}`);
+    throw new Error(`OpenAI ${res.status}: ${body}`);
+  }
+
+  const data = await res.json() as { choices: Array<{ message: { content: string } }> };
+  return data.choices[0]?.message?.content ?? "";
 }
 
 async function convertScreen(screen: SleekScreen): Promise<ScreenCode> {
@@ -35,10 +75,7 @@ async function convertScreen(screen: SleekScreen): Promise<ScreenCode> {
     messages.push({
       role: "user",
       content: [
-        {
-          type: "image_url",
-          image_url: { url: screen.screenshotUrl },
-        },
+        { type: "image_url", image_url: { url: screen.screenshotUrl } },
         {
           type: "text",
           text: `Convert this mobile screen design to React Native TypeScript.\nScreen name: "${screen.name}"\nHTML source for reference:\n${screen.html ?? ""}`,
@@ -52,24 +89,9 @@ async function convertScreen(screen: SleekScreen): Promise<ScreenCode> {
     });
   }
 
-  const res = await fetch(OPENAI_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({ model: MODEL, messages, max_tokens: 4096, temperature: 0.2 }),
-  });
-
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`OpenAI ${res.status}: ${body}`);
-  }
-
-  const data = await res.json() as { choices: Array<{ message: { content: string } }> };
-  const raw = data.choices[0]?.message?.content ?? "";
+  const raw = await callOpenAI(messages, apiKey);
   const stripped = raw.replace(/^```(?:tsx?|typescript)?\n?/, "").replace(/\n?```$/, "").trim();
-  // Hard-strip any forbidden imports regardless of what GPT-4o generated
+
   const code = stripped
     .replace(/^import\s+["']react-native-gesture-handler["'];?\s*\n?/gm, "")
     .replace(/^import\s+\S+\s+from\s+["']react-native-gesture-handler["'];?\s*\n?/gm, "")
@@ -85,8 +107,9 @@ async function convertScreen(screen: SleekScreen): Promise<ScreenCode> {
 
 export async function convertScreensToRN(screens: SleekScreen[]): Promise<ScreenCode[]> {
   const results: ScreenCode[] = [];
-  for (const screen of screens) {
-    results.push(await convertScreen(screen));
+  for (let i = 0; i < screens.length; i++) {
+    if (i > 0) await sleep(INTER_SCREEN_DELAY_MS);
+    results.push(await convertScreen(screens[i]!));
   }
   return results;
 }
