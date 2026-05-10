@@ -234,8 +234,8 @@ export async function getBuildStatus(buildId: string): Promise<BuildStatusResult
   // Correct path: build.byId(id:)  — NOT builds.byId(buildId:)
   const QUERY = `
     query BuildById($buildId: ID!) {
-      build {
-        byId(id: $buildId) {
+      builds {
+        byId(buildId: $buildId) {
           id
           status
           artifacts {
@@ -251,7 +251,7 @@ export async function getBuildStatus(buildId: string): Promise<BuildStatusResult
   `;
 
   const result = await gql<{
-    build: {
+    builds: {
       byId: {
         id: string;
         status: string;
@@ -261,7 +261,7 @@ export async function getBuildStatus(buildId: string): Promise<BuildStatusResult
     };
   }>(QUERY, { buildId });
 
-  const b = result.build?.byId;
+  const b = result.builds?.byId;
   if (!b) throw new Error(`Build ${buildId} not found`);
 
   const artifactUrl = b.artifacts?.buildUrl ?? b.artifacts?.applicationArchiveUrl;
