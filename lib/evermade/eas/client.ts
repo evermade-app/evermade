@@ -40,20 +40,23 @@ async function gql<T = unknown>(
   const token = process.env.EXPO_TOKEN;
   if (!token) throw new Error("EXPO_TOKEN not configured");
 
+  console.log("[EAS] token present:", token ? `${token.slice(0, 4)}...` : "MISSING");
+  const requestBody = JSON.stringify({ query: query.trim(), variables });
+  console.log("[EAS] request body:", requestBody);
+
   const res = await fetch(EAS_GRAPHQL_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ query, variables }),
+    body: requestBody,
   });
 
   const rawBody = await res.text();
 
   if (!res.ok) {
-    // Log full body so it appears in Vercel function logs
-    console.error("[EAS] HTTP error", res.status, rawBody);
+    console.error("[EAS] HTTP error", res.status, "FULL BODY:", rawBody);
     throw new Error(`EAS GraphQL HTTP ${res.status}: ${rawBody}`);
   }
 
@@ -177,10 +180,11 @@ export async function triggerAndroidBuild(
     appId: EAS_PROJECT_ID,
     job: {
       type: "MANAGED",
+      projectRootDirectory: ".",
       projectArchive: { type: "URL", url: archiveUrl },
       buildType: "APK",
     },
-    metadata: buildMetadata(appName, "internal"),
+    metadata: buildMetadata(appName, "INTERNAL"),
   });
 
   const id = result.build?.createAndroidBuild?.build?.id;
@@ -212,10 +216,11 @@ export async function triggerIosBuild(
     appId: EAS_PROJECT_ID,
     job: {
       type: "MANAGED",
+      projectRootDirectory: ".",
       projectArchive: { type: "URL", url: archiveUrl },
       buildType: "SIMULATOR",
     },
-    metadata: buildMetadata(appName, "simulator"),
+    metadata: buildMetadata(appName, "SIMULATOR"),
   });
 
   const id = result.build?.createIosBuild?.build?.id;
