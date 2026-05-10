@@ -198,57 +198,20 @@ ${screenLines}
 
 export function buildExpoStarterRootLayout(appName: string): string {
   return `import "@/global.css";
-import {
-  Nunito_300Light,
-  Nunito_400Regular,
-  Nunito_500Medium,
-  Nunito_600SemiBold,
-  Nunito_700Bold,
-  Nunito_800ExtraBold,
-  Nunito_900Black,
-} from "@expo-google-fonts/nunito";
-import {
-  Recursive_400Regular,
-  Recursive_700Bold,
-} from "@expo-google-fonts/recursive";
-import { JetBrainsMono_400Regular } from "@expo-google-fonts/jetbrains-mono";
-import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
-import { PortalHost } from "@rn-primitives/portal";
-import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
-import { hideAsync, preventAutoHideAsync } from "expo-splash-screen";
-import { useEffect } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { KeyboardProvider } from "react-native-keyboard-controller";
 import { AppThemeProvider } from "@/contexts/app-theme-context";
-
-preventAutoHideAsync();
 
 export const unstable_settings = { initialRouteName: "(tabs)" };
 
 export default function Layout() {
-  const [fontsLoaded] = useFonts({
-    Nunito_300Light, Nunito_400Regular, Nunito_500Medium, Nunito_600SemiBold,
-    Nunito_700Bold, Nunito_800ExtraBold, Nunito_900Black,
-    Recursive_400Regular, Recursive_700Bold,
-    JetBrainsMono_400Regular,
-  });
-
-  useEffect(() => { if (fontsLoaded) hideAsync(); }, [fontsLoaded]);
-  if (!fontsLoaded) return null;
-
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <KeyboardProvider>
-        <AppThemeProvider>
-          <BottomSheetModalProvider>
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            </Stack>
-            <PortalHost />
-          </BottomSheetModalProvider>
-        </AppThemeProvider>
-      </KeyboardProvider>
+      <AppThemeProvider>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        </Stack>
+      </AppThemeProvider>
     </GestureHandlerRootView>
   );
 }
@@ -319,19 +282,13 @@ export async function assembleExpoStarterZip(
       "check-types": "tsc --noEmit",
     },
     dependencies: {
-      "@expo-google-fonts/jetbrains-mono": "^0.4.1",
-      "@expo-google-fonts/nunito": "^0.4.2",
-      "@expo-google-fonts/recursive": "^0.4.2",
       "@expo/metro-runtime": "~6.1.2",
       "@expo/vector-icons": "^15.0.3",
-      "@gorhom/bottom-sheet": "^5",
-      "@rn-primitives/portal": "^1.3.0",
       "@rn-primitives/slot": "^1.2.0",
       "class-variance-authority": "^0.7.1",
       clsx: "^2.1.1",
       expo: "^54.0.23",
       "expo-constants": "~18.0.10",
-      "expo-font": "~14.0.9",
       "expo-haptics": "^15.0.7",
       "expo-linking": "~8.0.8",
       "expo-router": "~6.0.14",
@@ -341,7 +298,6 @@ export async function assembleExpoStarterZip(
       "react-dom": "19.1.0",
       "react-native": "0.81.5",
       "react-native-gesture-handler": "^2.28.0",
-      "react-native-keyboard-controller": "1.18.5",
       "react-native-reanimated": "~4.1.1",
       "react-native-safe-area-context": "~5.6.0",
       "react-native-screens": "~4.16.0",
@@ -381,7 +337,7 @@ export async function assembleExpoStarterZip(
         package: `com.evermade.${slug}`,
       },
       web: { bundler: "metro" },
-      plugins: ["expo-font"],
+      plugins: [],
       experiments: { typedRoutes: true },
     },
   }, null, 2));
