@@ -530,20 +530,22 @@ export function useThemeColor(themeColor: ThemeColor | ThemeColor[]): string | s
 `);
 
   zip.file("src/components/container.tsx", `import type { PropsWithChildren } from "react";
-import { ScrollView, View, type ViewProps } from "react-native";
-import Animated, { type AnimatedProps } from "react-native-reanimated";
+import { View, ScrollView, type ViewProps } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { cn } from "@/lib/utils/cn";
 
-const AnimatedView = Animated.createAnimatedComponent(View);
-type Props = AnimatedProps<ViewProps> & { className?: string };
+type Props = ViewProps & { className?: string };
 
-export function Container({ children, className, ...props }: PropsWithChildren<Props>) {
+export function Container({ children, className, style, ...props }: PropsWithChildren<Props>) {
   const insets = useSafeAreaInsets();
   return (
-    <AnimatedView className={cn("flex-1 bg-background", className)} style={{ paddingBottom: insets.bottom }} {...props}>
+    <View
+      className={cn("flex-1 bg-background", className)}
+      style={[{ paddingBottom: insets.bottom }, style]}
+      {...props}
+    >
       <ScrollView contentContainerStyle={{ flexGrow: 1 }}>{children}</ScrollView>
-    </AnimatedView>
+    </View>
   );
 }
 `);
