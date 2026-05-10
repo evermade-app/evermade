@@ -153,6 +153,18 @@ function FunctionalizeSection({ sleekApp, onDone }: {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
+      let navTimeoutId: ReturnType<typeof setTimeout> | null = null;
+      let navTimedOut = false;
+
+      const finishWithScreens = () => {
+        setFxState({ status: "done" });
+        onDone({
+          ...sleekApp,
+          screens: updatedScreens,
+          navigation: navBundle ?? undefined,
+          isFunctional: true,
+        });
+      };
 
       while (true) {
         const { done, value } = await reader.read();
@@ -187,21 +199,25 @@ function FunctionalizeSection({ sleekApp, onDone }: {
             };
           } else if (event.type === "progress" && event.step === "navigation") {
             setFxState({ status: "navigating" });
+            navTimeoutId = setTimeout(() => {
+              navTimedOut = true;
+              reader.cancel();
+            }, 15_000);
           } else if (event.type === "navigation_done") {
+            if (navTimeoutId) { clearTimeout(navTimeoutId); navTimeoutId = null; }
             navBundle = { appTsx: event.appTsx, navigatorTsx: event.navigatorTsx };
           } else if (event.type === "done") {
-            setFxState({ status: "done" });
-            onDone({
-              ...sleekApp,
-              screens: updatedScreens,
-              navigation: navBundle ?? undefined,
-              isFunctional: true,
-            });
+            if (navTimeoutId) { clearTimeout(navTimeoutId); navTimeoutId = null; }
+            finishWithScreens();
           } else if (event.type === "error") {
+            if (navTimeoutId) { clearTimeout(navTimeoutId); navTimeoutId = null; }
             throw new Error(event.message);
           }
         }
       }
+
+      // Nav step timed out — stream was cancelled, proceed without navigation bundle
+      if (navTimedOut) finishWithScreens();
     } catch (err) {
       if ((err as Error).name === "AbortError") return;
       setFxState({ status: "error", message: err instanceof Error ? err.message : "Unknown error" });
