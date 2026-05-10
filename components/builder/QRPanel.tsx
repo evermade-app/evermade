@@ -739,6 +739,8 @@ function PlatformResult({ platform, build }: { platform: "android" | "ios"; buil
 export default function QRPanel() {
   const { project, sleekApp, setSleekApp } = useEditor();
   const [previewUrl, setPreviewUrl] = useState<string>("");
+  const [snackId, setSnackId] = useState<string | null>(null);
+  const [snackLoading, setSnackLoading] = useState(false);
   const uploadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -760,8 +762,27 @@ export default function QRPanel() {
     };
   }, [project]);
 
-  const handleFunctionalizeDone = useCallback((updatedApp: SleekPreviewApp) => {
+  const handleFunctionalizeDone = useCallback(async (updatedApp: SleekPreviewApp) => {
     setSleekApp(updatedApp);
+    setSnackLoading(true);
+    try {
+      const res = await fetch("/api/ai/snack", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          appName: updatedApp.appName,
+          screens: updatedApp.screens.map((s) => ({ screenName: s.name })),
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json() as { hashId?: string };
+        if (data.hashId) setSnackId(data.hashId);
+      }
+    } catch {
+      // non-fatal — preview QR still works
+    } finally {
+      setSnackLoading(false);
+    }
   }, [setSleekApp]);
 
   const sleekAppRef = useRef(sleekApp);
@@ -804,7 +825,7 @@ export default function QRPanel() {
               Test on your device
             </div>
             <div style={{ fontSize: 10.5, color: "rgba(255,255,255,0.28)" }}>
-              {previewUrl ? "Scan to open live preview" : "Detecting local network…"}
+              {snackId ? "Scan with camera · opens in Expo Go" : previewUrl ? "Scan to open live preview" : "Detecting local network…"}
             </div>
           </div>
 
@@ -815,11 +836,28 @@ export default function QRPanel() {
               borderRadius: 12,
               boxShadow: "0 8px 32px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4)",
             }}>
-              {previewUrl ? <RealQRCode url={previewUrl} /> : <FakeQRCode />}
+              {snackLoading ? <FakeQRCode /> : snackId ? <RealQRCode url={`exp://exp.host/@snack/${snackId}`} /> : previewUrl ? <RealQRCode url={previewUrl} /> : <FakeQRCode />}
             </div>
           </div>
 
-          {previewUrl && (
+          {snackId ? (
+            <a
+              href={`https://snack.expo.dev/${snackId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center",
+                gap: 6, padding: "7px 10px", borderRadius: 20, marginBottom: 10,
+                background: "rgba(204,255,0,0.07)", border: "1px solid rgba(204,255,0,0.25)",
+                textDecoration: "none",
+              }}
+            >
+              <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#CCFF00", boxShadow: "0 0 6px rgba(204,255,0,0.9)", flexShrink: 0 }} />
+              <span style={{ fontSize: 9.5, color: "rgba(204,255,0,0.75)", fontFamily: "monospace" }}>
+                snack.expo.dev/{snackId}
+              </span>
+            </a>
+          ) : previewUrl ? (
             <div style={{
               marginBottom: 10,
               display: "flex", alignItems: "center", justifyContent: "center",
@@ -831,7 +869,7 @@ export default function QRPanel() {
                 {previewUrl}
               </span>
             </div>
-          )}
+          ) : null}
 
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
