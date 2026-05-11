@@ -762,27 +762,18 @@ function PlatformResult({ platform, build }: { platform: "android" | "ios"; buil
 export default function QRPanel() {
   const { project, sleekApp, setSleekApp } = useEditor();
   const [previewUrl, setPreviewUrl] = useState<string>("");
-  const uploadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Build preview URL from Sleek component IDs — no database needed
   useEffect(() => {
     const base = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin;
-    setPreviewUrl(`${base}/preview/${project.id}`);
-  }, [project.id]);
-
-  // Upload sleekApp (not project) — preview page expects { appName, screens[].html }
-  useEffect(() => {
-    if (!sleekApp || sleekApp.screens.length === 0) return;
-    if (uploadTimerRef.current) clearTimeout(uploadTimerRef.current);
-    uploadTimerRef.current = setTimeout(() => {
-      fetch(`/api/preview/${project.id}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(sleekApp),
-      }).catch(() => {});
-    }, 500);
-    return () => {
-      if (uploadTimerRef.current) clearTimeout(uploadTimerRef.current);
-    };
+    if (sleekApp && sleekApp.screens.length > 0) {
+      const ids = sleekApp.screens.map((s) => s.id).join(",");
+      const names = sleekApp.screens.map((s) => encodeURIComponent(s.name)).join(",");
+      const title = encodeURIComponent(sleekApp.appName);
+      setPreviewUrl(`${base}/preview?screens=${ids}&names=${names}&title=${title}`);
+    } else {
+      setPreviewUrl(`${base}/preview/${project.id}`);
+    }
   }, [project.id, sleekApp]);
 
   const handleFunctionalizeDone = useCallback((updatedApp: SleekPreviewApp) => {
