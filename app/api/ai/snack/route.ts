@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
 
   console.log("[Snack] creating snack for:", appName);
 
-  const res = await fetch("https://exp.host/--/api/v2/snack", {
+  const res = await fetch("https://snack.expo.dev/api/v2/snack", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
