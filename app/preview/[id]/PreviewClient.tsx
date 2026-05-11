@@ -16,9 +16,11 @@ interface Props {
 
 const PHONE_W = 390;
 const PHONE_H = 844;
-const PHONE_SCALE = 0.72;
+const SCALE = 0.38;
 const R_OUTER = 52;
 const BEZEL = 8.5;
+const FRAME_W = Math.round(PHONE_W * SCALE);
+const FRAME_H = Math.round(PHONE_H * SCALE);
 
 function LogoMark() {
   return (
@@ -31,17 +33,83 @@ function LogoMark() {
   );
 }
 
+function PhoneFrame({ screen }: { screen: { id: string; name: string; html: string } }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, flexShrink: 0 }}>
+      {/* Frame */}
+      <div style={{ position: "relative", width: FRAME_W, height: FRAME_H }}>
+        {/* Glow border */}
+        <div style={{
+          position: "absolute", inset: 0,
+          borderRadius: R_OUTER * SCALE,
+          boxShadow: `0 0 0 ${2 * SCALE}px rgba(204,255,0,0.6), 0 0 30px rgba(204,255,0,0.15), 0 20px 60px rgba(0,0,0,0.7)`,
+        }} />
+        {/* Screen area */}
+        <div style={{
+          position: "absolute",
+          inset: BEZEL * SCALE,
+          borderRadius: (R_OUTER - BEZEL + 2) * SCALE,
+          overflow: "hidden",
+          background: "#08080F",
+        }}>
+          <div style={{
+            width: PHONE_W,
+            height: PHONE_H,
+            transform: `scale(${SCALE})`,
+            transformOrigin: "top left",
+          }}>
+            <iframe
+              key={screen.id}
+              srcDoc={screen.html}
+              sandbox="allow-scripts allow-same-origin"
+              style={{ width: PHONE_W, height: PHONE_H, border: "none", display: "block" }}
+              title={screen.name}
+            />
+          </div>
+        </div>
+        {/* Dynamic Island */}
+        <div style={{
+          position: "absolute",
+          top: (BEZEL + 14) * SCALE,
+          left: "50%", transform: "translateX(-50%)",
+          width: 118 * SCALE, height: 36 * SCALE,
+          borderRadius: 24 * SCALE,
+          background: "#000",
+          zIndex: 10,
+          boxShadow: "0 2px 8px rgba(0,0,0,0.8)",
+        }} />
+        {/* Glass reflection */}
+        <div style={{
+          position: "absolute",
+          inset: BEZEL * SCALE,
+          borderRadius: (R_OUTER - BEZEL + 2) * SCALE,
+          background: "linear-gradient(148deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 28%, transparent 50%)",
+          pointerEvents: "none",
+          zIndex: 8,
+        }} />
+      </div>
+      {/* Screen label */}
+      <span style={{
+        fontSize: 11, fontWeight: 600,
+        color: "rgba(255,255,255,0.4)",
+        letterSpacing: -0.1,
+        textAlign: "center",
+        maxWidth: FRAME_W + 16,
+        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+      }}>
+        {screen.name}
+      </span>
+    </div>
+  );
+}
+
 export default function PreviewClient({ sleekApp, previewId }: Props) {
-  const [activeIndex, setActiveIndex] = useState(sleekApp.activeIndex ?? 0);
   const [previewUrl, setPreviewUrl] = useState("");
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     setPreviewUrl(`${window.location.origin}/preview/${previewId}`);
   }, [previewId]);
-
-  const safeIndex = Math.min(activeIndex, sleekApp.screens.length - 1);
-  const activeScreen = sleekApp.screens[safeIndex];
 
   const copy = async () => {
     if (!previewUrl) return;
@@ -96,10 +164,10 @@ export default function PreviewClient({ sleekApp, previewId }: Props) {
         @keyframes blobA { 0%,100%{transform:translate(0,0)scale(1)} 40%{transform:translate(60px,-40px)scale(1.1)} 70%{transform:translate(-20px,30px)scale(0.92)} }
         @keyframes blobB { 0%,100%{transform:translate(0,0)scale(1)} 30%{transform:translate(-50px,30px)scale(0.9)} 65%{transform:translate(40px,-50px)scale(1.08)} }
         @keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes phoneIn { from{opacity:0;transform:translateY(36px)scale(0.95)} to{opacity:1;transform:translateY(0)scale(1)} }
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
         .social-link:hover { background: rgba(255,255,255,0.09) !important; color: rgba(255,255,255,0.8) !important; }
-        .tab-btn:hover { opacity: 0.85 !important; }
+        .screens-scroll { scrollbar-width: none; }
+        .screens-scroll::-webkit-scrollbar { display: none; }
       `}</style>
 
       {/* Grid */}
@@ -145,7 +213,6 @@ export default function PreviewClient({ sleekApp, previewId }: Props) {
             evermade
           </span>
         </a>
-
         <a
           href="/new-project"
           style={{
@@ -165,20 +232,20 @@ export default function PreviewClient({ sleekApp, previewId }: Props) {
       {/* ── Main ── */}
       <main style={{
         position: "relative", zIndex: 1,
-        width: "100%", maxWidth: 600,
-        padding: "48px 20px 80px",
+        width: "100%",
+        padding: "40px 0 80px",
         display: "flex", flexDirection: "column", alignItems: "center",
         boxSizing: "border-box",
       }}>
 
         {/* App info */}
-        <div style={{ textAlign: "center", marginBottom: 36, animation: "fadeUp 0.5s ease both" }}>
+        <div style={{ textAlign: "center", marginBottom: 36, padding: "0 20px", animation: "fadeUp 0.5s ease both" }}>
           <div style={{
             display: "inline-flex", alignItems: "center", gap: 7,
             padding: "5px 13px", borderRadius: 99,
             background: "rgba(204,255,0,0.08)", border: "1px solid rgba(204,255,0,0.22)",
             fontSize: 11, fontWeight: 700, color: "#CCFF00",
-            letterSpacing: 0.6, textTransform: "uppercase", marginBottom: 18,
+            letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 18,
           }}>
             <span style={{
               width: 6, height: 6, borderRadius: "50%", background: "#CCFF00",
@@ -188,10 +255,10 @@ export default function PreviewClient({ sleekApp, previewId }: Props) {
           </div>
 
           <h1 style={{
-            fontSize: "clamp(26px, 6vw, 48px)", fontWeight: 900,
+            fontSize: "clamp(24px, 6vw, 42px)", fontWeight: 900,
             color: "rgba(255,255,255,0.95)",
-            letterSpacing: "clamp(-1.5px, -0.04em, -3px)",
-            lineHeight: 1.08, margin: "0 0 12px",
+            letterSpacing: "clamp(-1.5px, -0.04em, -2px)",
+            lineHeight: 1.08, margin: "0 0 10px",
           }}>
             {sleekApp.appName}
           </h1>
@@ -201,176 +268,101 @@ export default function PreviewClient({ sleekApp, previewId }: Props) {
           </p>
         </div>
 
-        {/* ── Phone mockup ── */}
-        <div style={{
-          display: "flex", flexDirection: "column", alignItems: "center", gap: 22,
-          animation: "phoneIn 0.65s cubic-bezier(0.22,1,0.36,1) 0.1s both",
-        }}>
-          <div style={{
-            position: "relative",
-            width: PHONE_W * PHONE_SCALE,
-            height: PHONE_H * PHONE_SCALE,
-            flexShrink: 0,
-          }}>
-            {/* Lime glow frame */}
-            <div style={{
-              position: "absolute", inset: 0,
-              borderRadius: R_OUTER * PHONE_SCALE,
-              boxShadow: [
-                `0 0 0 ${2.5 * PHONE_SCALE}px #CCFF00`,
-                `0 0 50px rgba(204,255,0,0.28)`,
-                `0 70px 140px rgba(0,0,0,0.85)`,
-              ].join(", "),
-            }} />
-
-            {/* Screen area */}
-            <div style={{
-              position: "absolute",
-              inset: BEZEL * PHONE_SCALE,
-              borderRadius: (R_OUTER - BEZEL + 2) * PHONE_SCALE,
-              overflow: "hidden",
-              background: "#08080F",
-            }}>
-              {activeScreen && (
-                <div style={{
-                  width: PHONE_W, height: PHONE_H,
-                  transform: `scale(${PHONE_SCALE})`,
-                  transformOrigin: "top left",
-                  willChange: "transform",
-                }}>
-                  <iframe
-                    key={activeScreen.id}
-                    srcDoc={activeScreen.html}
-                    sandbox="allow-scripts allow-same-origin"
-                    style={{ width: PHONE_W, height: PHONE_H, border: "none", display: "block" }}
-                    title={activeScreen.name}
-                  />
-                </div>
-              )}
+        {/* ── Screens gallery — horizontal scroll ── */}
+        <div
+          className="screens-scroll"
+          style={{
+            width: "100%",
+            overflowX: "auto",
+            overflowY: "visible",
+            display: "flex",
+            gap: 16,
+            padding: `20px 24px ${FRAME_H * 0.1 + 20}px`,
+            scrollSnapType: "x mandatory",
+            WebkitOverflowScrolling: "touch" as unknown as undefined,
+            boxSizing: "border-box",
+            animation: "fadeUp 0.65s cubic-bezier(0.22,1,0.36,1) 0.1s both",
+          } as React.CSSProperties}
+        >
+          {sleekApp.screens.map((screen) => (
+            <div key={screen.id} style={{ scrollSnapAlign: "start", flexShrink: 0 }}>
+              <PhoneFrame screen={screen} />
             </div>
-
-            {/* Dynamic Island */}
-            <div style={{
-              position: "absolute",
-              top: (BEZEL + 14) * PHONE_SCALE,
-              left: "50%", transform: "translateX(-50%)",
-              width: 118 * PHONE_SCALE, height: 36 * PHONE_SCALE,
-              borderRadius: 24 * PHONE_SCALE,
-              background: "#000",
-              zIndex: 10,
-              boxShadow: "0 2px 10px rgba(0,0,0,0.8)",
-            }}>
-              {/* Camera */}
-              <div style={{
-                position: "absolute", right: "20%", top: "50%", transform: "translateY(-50%)",
-                width: 9 * PHONE_SCALE, height: 9 * PHONE_SCALE,
-                borderRadius: "50%", background: "#111820",
-                boxShadow: "inset 0 0 3px rgba(0,0,0,0.9)",
-              }} />
-            </div>
-
-            {/* Glass reflection */}
-            <div style={{
-              position: "absolute",
-              inset: BEZEL * PHONE_SCALE,
-              borderRadius: (R_OUTER - BEZEL + 2) * PHONE_SCALE,
-              background: "linear-gradient(148deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.02) 28%, transparent 50%)",
-              pointerEvents: "none",
-              zIndex: 8,
-            }} />
-          </div>
-
-          {/* Screen tabs */}
-          {sleekApp.screens.length > 1 && (
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "center", maxWidth: PHONE_W * PHONE_SCALE + 40 }}>
-              {sleekApp.screens.map((s, i) => (
-                <button
-                  key={s.id}
-                  className="tab-btn"
-                  onClick={() => setActiveIndex(i)}
-                  style={{
-                    padding: "6px 16px", borderRadius: 99, border: "none", cursor: "pointer",
-                    fontSize: 12, fontWeight: 600, transition: "all 0.18s",
-                    background: i === safeIndex ? "#CCFF00" : "rgba(255,255,255,0.07)",
-                    color: i === safeIndex ? "#000" : "rgba(255,255,255,0.42)",
-                    boxShadow: i === safeIndex ? "0 4px 16px rgba(204,255,0,0.3)" : "none",
-                    fontFamily: "inherit", letterSpacing: -0.1,
-                  }}
-                >
-                  {s.name}
-                </button>
-              ))}
-            </div>
-          )}
+          ))}
+          {/* Right padding sentinel */}
+          <div style={{ flexShrink: 0, width: 8 }} />
         </div>
 
         {/* ── Share card ── */}
         <div style={{
-          width: "100%", marginTop: 40,
-          background: "rgba(255,255,255,0.025)",
-          border: "1px solid rgba(255,255,255,0.07)",
-          borderRadius: 20, padding: "20px",
+          width: "100%", maxWidth: 520, marginTop: 24, padding: "0 20px",
           animation: "fadeUp 0.6s ease 0.25s both",
           boxSizing: "border-box",
         }}>
-          <div style={{ fontSize: 10.5, fontWeight: 700, color: "rgba(255,255,255,0.28)", letterSpacing: 0.8, textTransform: "uppercase", marginBottom: 14 }}>
-            Share this app
-          </div>
-
-          {/* Copy link row */}
-          <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-            <div style={{
-              flex: 1, padding: "10px 13px", borderRadius: 10,
-              background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)",
-              fontSize: 11, color: "rgba(255,255,255,0.3)", lineHeight: 1,
-              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-              display: "flex", alignItems: "center",
-            }}>
-              {previewUrl || "Loading…"}
+          <div style={{
+            background: "rgba(255,255,255,0.025)",
+            border: "1px solid rgba(255,255,255,0.07)",
+            borderRadius: 20, padding: "20px",
+          }}>
+            <div style={{ fontSize: 10.5, fontWeight: 700, color: "rgba(255,255,255,0.28)", letterSpacing: 0.8, textTransform: "uppercase" as const, marginBottom: 14 }}>
+              Share this app
             </div>
-            <button
-              onClick={copy}
-              style={{
-                padding: "10px 20px", borderRadius: 10, border: "none", cursor: "pointer",
-                fontSize: 12.5, fontWeight: 700, whiteSpace: "nowrap", transition: "all 0.18s",
-                background: copied ? "rgba(52,211,153,0.15)" : "#CCFF00",
-                color: copied ? "#34D399" : "#000",
-                fontFamily: "inherit", letterSpacing: -0.1,
-                boxShadow: copied ? "none" : "0 4px 16px rgba(204,255,0,0.3)",
-              }}
-            >
-              {copied ? "✓ Copied!" : "Copy link"}
-            </button>
-          </div>
 
-          {/* Social row */}
-          <div style={{ display: "flex", gap: 8 }}>
-            {socials.map((s) => (
-              <a
-                key={s.label}
-                href={s.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="social-link"
+            {/* Copy link row */}
+            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+              <div style={{
+                flex: 1, padding: "10px 13px", borderRadius: 10,
+                background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)",
+                fontSize: 11, color: "rgba(255,255,255,0.3)", lineHeight: 1,
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const,
+                display: "flex", alignItems: "center",
+              }}>
+                {previewUrl || "Loading…"}
+              </div>
+              <button
+                onClick={copy}
                 style={{
-                  flex: 1, padding: "10px 4px", borderRadius: 10,
-                  background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)",
-                  color: "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 600,
-                  textDecoration: "none", display: "flex",
-                  alignItems: "center", justifyContent: "center", gap: 6,
-                  transition: "all 0.14s",
+                  padding: "10px 20px", borderRadius: 10, border: "none", cursor: "pointer",
+                  fontSize: 12.5, fontWeight: 700, whiteSpace: "nowrap" as const, transition: "all 0.18s",
+                  background: copied ? "rgba(52,211,153,0.15)" : "#CCFF00",
+                  color: copied ? "#34D399" : "#000",
+                  fontFamily: "inherit", letterSpacing: -0.1,
+                  boxShadow: copied ? "none" : "0 4px 16px rgba(204,255,0,0.3)",
                 }}
               >
-                {s.icon}
-                <span>{s.label}</span>
-              </a>
-            ))}
+                {copied ? "✓ Copied!" : "Copy link"}
+              </button>
+            </div>
+
+            {/* Social row */}
+            <div style={{ display: "flex", gap: 8 }}>
+              {socials.map((s) => (
+                <a
+                  key={s.label}
+                  href={s.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="social-link"
+                  style={{
+                    flex: 1, padding: "10px 4px", borderRadius: 10,
+                    background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)",
+                    color: "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 600,
+                    textDecoration: "none", display: "flex",
+                    alignItems: "center", justifyContent: "center", gap: 6,
+                    transition: "all 0.14s",
+                  }}
+                >
+                  {s.icon}
+                  <span>{s.label}</span>
+                </a>
+              ))}
+            </div>
           </div>
         </div>
 
         {/* ── CTA ── */}
         <div style={{
-          marginTop: 52, textAlign: "center",
+          marginTop: 48, textAlign: "center", padding: "0 20px",
           animation: "fadeUp 0.6s ease 0.35s both",
         }}>
           <div style={{ fontSize: 12.5, color: "rgba(255,255,255,0.22)", marginBottom: 16, letterSpacing: -0.1 }}>
@@ -385,7 +377,6 @@ export default function PreviewClient({ sleekApp, previewId }: Props) {
               fontSize: 15, fontWeight: 800,
               textDecoration: "none", letterSpacing: -0.3,
               boxShadow: "0 8px 36px rgba(204,255,0,0.35)",
-              transition: "transform 0.15s ease, box-shadow 0.15s ease",
             }}
           >
             Build your app with Evermade

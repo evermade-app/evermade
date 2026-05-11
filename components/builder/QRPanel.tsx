@@ -6,16 +6,6 @@ import { useEditor } from "@/lib/editor/EditorContext";
 import type { SleekPreviewApp, SleekPreviewScreen } from "@/lib/editor/EditorContext";
 import type { EASBuildStatus } from "@/lib/evermade/eas/client";
 
-// ── Snack App.js builder (runs in browser — no Vercel timeout) ────────────────
-function buildSnackApp(appName: string, screenNames: string[]): string {
-  const s = JSON.stringify(screenNames);
-  const name = appName.replace(/`/g, "'");
-  return `import React,{useState}from 'react';import{View,Text,TouchableOpacity,StyleSheet,SafeAreaView,ScrollView}from 'react-native';
-const S=${s};
-export default function App(){const[a,setA]=useState(0);return(<SafeAreaView style={st.r}><View style={st.h}><Text style={st.hn}>${name}</Text></View><ScrollView contentContainerStyle={st.sc}><Text style={st.t}>{S[a]}</Text><Text style={st.sub}>Made with Evermade</Text></ScrollView><View style={st.tb}>{S.map((n,i)=><TouchableOpacity key={n} style={st.tab} onPress={()=>setA(i)}><Text style={[st.tl,a===i&&st.ta]}>{n}</Text></TouchableOpacity>)}</View></SafeAreaView>);}
-const st=StyleSheet.create({r:{flex:1,backgroundColor:'#09090b'},h:{padding:16,borderBottomWidth:1,borderBottomColor:'#ffffff10'},hn:{fontSize:16,fontWeight:'700',color:'#ffffffdd'},sc:{flexGrow:1,alignItems:'center',justifyContent:'center',padding:24},t:{fontSize:26,fontWeight:'700',color:'#fff',marginBottom:8,textAlign:'center'},sub:{fontSize:13,color:'#ffffff55',textAlign:'center'},tb:{flexDirection:'row',borderTopWidth:1,borderTopColor:'#ffffff10',paddingBottom:20,paddingTop:10},tab:{flex:1,alignItems:'center',padding:4},tl:{fontSize:10,color:'#ffffff44'},ta:{color:'#CCFF00',fontWeight:'600'}});`;
-}
-
 // ── Real QR code via qrcode package ───────────────────────────────────────────
 function RealQRCode({ url }: { url: string }) {
   const [dataUrl, setDataUrl] = useState<string | null>(null);
@@ -772,8 +762,6 @@ function PlatformResult({ platform, build }: { platform: "android" | "ios"; buil
 export default function QRPanel() {
   const { project, sleekApp, setSleekApp } = useEditor();
   const [previewUrl, setPreviewUrl] = useState<string>("");
-  const [snackId, setSnackId] = useState<string | null>(null);
-  const [snackLoading, setSnackLoading] = useState(false);
   const uploadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -795,25 +783,8 @@ export default function QRPanel() {
     };
   }, [project]);
 
-  const handleFunctionalizeDone = useCallback(async (updatedApp: SleekPreviewApp) => {
+  const handleFunctionalizeDone = useCallback((updatedApp: SleekPreviewApp) => {
     setSleekApp(updatedApp);
-    setSnackLoading(true);
-    try {
-      console.log("calling snack API", updatedApp.appName);
-      const res = await fetch("/api/ai/snack", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ appName: updatedApp.appName }),
-      });
-      const data = await res.json() as { hashId?: string; error?: string };
-      console.log("[snack] response:", data);
-      if (data.hashId) setSnackId(data.hashId);
-      else console.error("[snack] no hashId:", data.error);
-    } catch (err) {
-      console.error("[snack] fetch failed:", err);
-    } finally {
-      setSnackLoading(false);
-    }
   }, [setSleekApp]);
 
   const sleekAppRef = useRef(sleekApp);
@@ -856,7 +827,7 @@ export default function QRPanel() {
               Test on your device
             </div>
             <div style={{ fontSize: 10.5, color: "rgba(255,255,255,0.28)" }}>
-              {snackId ? "Scan with camera · opens in Expo Go" : previewUrl ? "Scan to open live preview" : "Detecting local network…"}
+              {previewUrl ? "Scan to open live preview" : "Generating preview…"}
             </div>
           </div>
 
@@ -867,28 +838,11 @@ export default function QRPanel() {
               borderRadius: 12,
               boxShadow: "0 8px 32px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4)",
             }}>
-              {snackLoading ? <FakeQRCode /> : snackId ? <RealQRCode url={`exp://exp.host/@snack/${snackId}`} /> : previewUrl ? <RealQRCode url={previewUrl} /> : <FakeQRCode />}
+              {previewUrl ? <RealQRCode url={previewUrl} /> : <FakeQRCode />}
             </div>
           </div>
 
-          {snackId ? (
-            <a
-              href={`https://snack.expo.dev/${snackId}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: "flex", alignItems: "center", justifyContent: "center",
-                gap: 6, padding: "7px 10px", borderRadius: 20, marginBottom: 10,
-                background: "rgba(204,255,0,0.07)", border: "1px solid rgba(204,255,0,0.25)",
-                textDecoration: "none",
-              }}
-            >
-              <div style={{ width: 4, height: 4, borderRadius: "50%", background: "#CCFF00", boxShadow: "0 0 6px rgba(204,255,0,0.9)", flexShrink: 0 }} />
-              <span style={{ fontSize: 9.5, color: "rgba(204,255,0,0.75)", fontFamily: "monospace" }}>
-                snack.expo.dev/{snackId}
-              </span>
-            </a>
-          ) : previewUrl ? (
+          {previewUrl && (
             <div style={{
               marginBottom: 10,
               display: "flex", alignItems: "center", justifyContent: "center",
@@ -900,7 +854,7 @@ export default function QRPanel() {
                 {previewUrl}
               </span>
             </div>
-          ) : null}
+          )}
 
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
