@@ -769,19 +769,21 @@ export default function QRPanel() {
     setPreviewUrl(`${base}/preview/${project.id}`);
   }, [project.id]);
 
+  // Upload sleekApp (not project) — preview page expects { appName, screens[].html }
   useEffect(() => {
+    if (!sleekApp || sleekApp.screens.length === 0) return;
     if (uploadTimerRef.current) clearTimeout(uploadTimerRef.current);
     uploadTimerRef.current = setTimeout(() => {
       fetch(`/api/preview/${project.id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(project),
+        body: JSON.stringify(sleekApp),
       }).catch(() => {});
     }, 500);
     return () => {
       if (uploadTimerRef.current) clearTimeout(uploadTimerRef.current);
     };
-  }, [project]);
+  }, [project.id, sleekApp]);
 
   const handleFunctionalizeDone = useCallback((updatedApp: SleekPreviewApp) => {
     setSleekApp(updatedApp);

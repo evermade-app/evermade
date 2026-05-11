@@ -12,6 +12,8 @@ interface SleekPreviewApp {
 }
 
 async function fetchSleekApp(id: string): Promise<SleekPreviewApp | null> {
+  console.log("[Preview page] looking up id:", id);
+
   // Query Supabase directly — avoids the localhost vs production URL problem
   try {
     const supabase = createServiceSupabaseClient();
@@ -20,8 +22,12 @@ async function fetchSleekApp(id: string): Promise<SleekPreviewApp | null> {
       .select("project")
       .eq("id", id)
       .single();
+
+    console.log("[Preview page] Supabase result — error:", error?.message ?? "none", "has data:", !!data?.project);
+
     if (!error && data?.project) {
       const app = data.project as SleekPreviewApp;
+      console.log("[Preview page] stored shape — appName:", app?.appName, "screens:", Array.isArray(app?.screens) ? app.screens.length : "not array");
       if (app?.appName && Array.isArray(app?.screens)) return app;
     }
   } catch (e) {
@@ -34,9 +40,14 @@ async function fetchSleekApp(id: string): Promise<SleekPreviewApp | null> {
     const host = headersList.get("host") ?? "localhost:3000";
     const proto = host.includes("localhost") ? "http" : "https";
     const baseUrl = `${proto}://${host}`;
+    console.log("[Preview page] trying HTTP fallback:", `${baseUrl}/api/preview/${id}`);
     const res = await fetch(`${baseUrl}/api/preview/${id}`, { cache: "no-store" });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.error("[Preview page] HTTP fallback returned", res.status);
+      return null;
+    }
     const data = await res.json() as SleekPreviewApp;
+    console.log("[Preview page] HTTP fallback shape — appName:", data?.appName, "screens:", Array.isArray(data?.screens) ? data.screens.length : "not array");
     if (data?.appName && Array.isArray(data?.screens)) return data;
   } catch {
     // ignore
