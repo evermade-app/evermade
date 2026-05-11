@@ -272,47 +272,21 @@ export async function assembleExpoStarterZip(
   zip.file("package.json", JSON.stringify({
     name: slug,
     version: "1.0.0",
-    private: true,
     main: "expo-router/entry",
-    scripts: {
-      start: "expo start",
-      dev: "expo start --clear",
-      android: "expo run:android",
-      ios: "expo run:ios",
-      "check-types": "tsc --noEmit",
-    },
+    scripts: { start: "expo start" },
     dependencies: {
-      "@expo/metro-runtime": "~6.1.2",
-      "@expo/vector-icons": "^15.0.3",
-      "@rn-primitives/slot": "^1.2.0",
-      "class-variance-authority": "^0.7.1",
-      clsx: "^2.1.1",
-      expo: "^54.0.23",
-      "expo-constants": "~18.0.10",
-      "expo-haptics": "^15.0.7",
-      "expo-linking": "~8.0.8",
-      "expo-router": "~6.0.14",
-      "expo-splash-screen": "^31.0.13",
-      "expo-status-bar": "~3.0.8",
-      react: "19.1.0",
-      "react-dom": "19.1.0",
-      "react-native": "0.81.5",
-      "react-native-gesture-handler": "^2.28.0",
-      "react-native-reanimated": "~4.1.1",
-      "react-native-safe-area-context": "~5.6.0",
-      "react-native-screens": "~4.16.0",
-      "react-native-svg": "15.15.1",
-      "react-native-web": "^0.21.0",
-      "tailwind-merge": "^3.4.0",
-      tailwindcss: "^4.1.18",
-      "tailwindcss-animate": "^1.0.7",
-      uniwind: "^1.2.2",
+      expo: "~54.0.0",
+      "expo-router": "~4.0.0",
+      react: "18.3.1",
+      "react-native": "0.76.9",
+      "expo-linear-gradient": "~14.0.0",
+      "react-native-safe-area-context": "4.12.0",
+      "react-native-screens": "~4.4.0",
+      "@expo/vector-icons": "^14.0.0",
     },
     devDependencies: {
-      "@types/react": "~19.1.0",
-      "@types/node": "^24.0.0",
-      typescript: "^5",
-      "babel-preset-expo": "~12.0.0",
+      "babel-preset-expo": "~13.0.0",
+      typescript: "~5.3.0",
     },
   }, null, 2));
 
@@ -323,43 +297,19 @@ export async function assembleExpoStarterZip(
       slug,
       scheme: slug,
       version: "1.0.0",
+      platforms: ["ios", "android"],
+      sdkVersion: "54.0.0",
       orientation: "portrait",
-      userInterfaceStyle: "automatic",
-      icon: "./assets/images/icon.png",
-      splash: { image: "./assets/images/splash-icon.png", resizeMode: "contain", backgroundColor: "#09090b" },
-      ios: { supportsTablet: true, bundleIdentifier: `com.evermade.${slug}` },
-      android: {
-        adaptiveIcon: {
-          foregroundImage: "./assets/images/android-icon-foreground.png",
-          backgroundImage: "./assets/images/android-icon-background.png",
-          monochromeImage: "./assets/images/android-icon-monochrome.png",
-        },
-        package: `com.evermade.${slug}`,
-      },
-      web: { bundler: "metro" },
-      plugins: [],
-      experiments: { typedRoutes: true },
+      icon: "./assets/icon.png",
+      splash: { image: "./assets/splash.png", resizeMode: "contain", backgroundColor: "#09090b" },
     },
   }, null, 2));
 
   // ── tsconfig.json ────────────────────────────────────────────────────────────
   zip.file("tsconfig.json", JSON.stringify({
     extends: "expo/tsconfig.base",
-    compilerOptions: { strict: true, baseUrl: ".", paths: { "@/*": ["./src/*"] } },
-    include: ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
+    compilerOptions: { strict: true },
   }, null, 2));
-
-  // ── metro.config.js ─────────────────────────────────────────────────────────
-  zip.file("metro.config.js", `const { getDefaultConfig } = require("expo/metro-config");
-const { withUniwindConfig } = require("uniwind/metro");
-
-let config = getDefaultConfig(__dirname);
-config = withUniwindConfig(config, {
-  cssEntryFile: "./src/global.css",
-  dtsFile: "./src/uniwind-types.d.ts",
-});
-module.exports = config;
-`);
 
   // ── babel.config.js ─────────────────────────────────────────────────────────
   zip.file("babel.config.js", `module.exports = function(api) {
@@ -368,320 +318,97 @@ module.exports = config;
 };
 `);
 
-  // ── src/global.css ───────────────────────────────────────────────────────────
-  zip.file("src/global.css", `@import "tailwindcss";
-@import "uniwind";
+  // ── app/_layout.tsx ──────────────────────────────────────────────────────
+  zip.file("app/_layout.tsx", rootLayout);
 
-@theme {
-  --font-sans: System;
-  --font-mono: monospace;
-  --radius: 1rem;
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-}
-
-@layer theme {
-  :root {
-    @variant light {
-      --color-background: #ffffff;
-      --color-foreground: #09090b;
-      --color-primary: #15aeed;
-      --color-primary-foreground: #ffffff;
-      --color-secondary: #f4f4f5;
-      --color-secondary-foreground: #18181b;
-      --color-muted: #f4f4f5;
-      --color-muted-foreground: #71717a;
-      --color-accent: #e0f2fe;
-      --color-accent-foreground: #0369a1;
-      --color-destructive: #ef4444;
-      --color-card: #f4f4f5;
-      --color-card-foreground: #09090b;
-      --color-popover: #ffffff;
-      --color-popover-foreground: #09090b;
-      --color-border: #e4e4e7;
-      --color-input: #e4e4e7;
-      --color-ring: #15aeed;
-    }
-    @variant dark {
-      --color-background: #09090b;
-      --color-foreground: #fafafa;
-      --color-primary: #15aeed;
-      --color-primary-foreground: #ffffff;
-      --color-secondary: #27272a;
-      --color-secondary-foreground: #fafafa;
-      --color-muted: #27272a;
-      --color-muted-foreground: #a1a1aa;
-      --color-accent: #0c4a6e;
-      --color-accent-foreground: #7dd3fc;
-      --color-destructive: #dc2626;
-      --color-card: #18181b;
-      --color-card-foreground: #fafafa;
-      --color-popover: #18181b;
-      --color-popover-foreground: #fafafa;
-      --color-border: #27272a;
-      --color-input: #27272a;
-      --color-ring: #15aeed;
-    }
-  }
-}
-`);
-
-  // ── src/app/_layout.tsx ──────────────────────────────────────────────────────
-  zip.file("src/app/_layout.tsx", rootLayout);
-
-  // ── src/app/(tabs)/_layout.tsx ───────────────────────────────────────────────
-  zip.file("src/app/(tabs)/_layout.tsx", tabsLayout);
+  // ── app/(tabs)/_layout.tsx ───────────────────────────────────────────────
+  zip.file("app/(tabs)/_layout.tsx", tabsLayout);
 
   // ── Generated screen files ───────────────────────────────────────────────────
   for (const screen of tabs) {
     const route = screenToTabRoute(screen.componentName);
-    zip.file(`src/app/(tabs)/${route}.tsx`, screen.code);
+    zip.file(`app/(tabs)/${route}.tsx`, screen.code);
   }
-
-  // ── UI components (verbatim from expo-starter) ────────────────────────────────
-  zip.file("src/lib/utils/cn.ts", `import { type ClassValue, clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
-
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
-`);
-
-  zip.file("src/lib/theme/constants.ts", `const THEME_COLORS = [
-  "background","foreground","primary","primary-foreground","secondary",
-  "secondary-foreground","muted","muted-foreground","accent","accent-foreground",
-  "destructive","card","card-foreground","popover","popover-foreground",
-  "border","input","ring",
-  "chart-1","chart-2","chart-3","chart-4","chart-5",
-] as const;
-type ThemeColor = (typeof THEME_COLORS)[number];
-export { THEME_COLORS };
-export type { ThemeColor };
-`);
-
-  zip.file("src/lib/theme/use-theme-color.ts", `import { useCSSVariable } from "uniwind";
-import type { ThemeColor } from "./constants";
-type CreateStringTuple<N extends number, TAcc extends string[] = []> =
-  TAcc["length"] extends N ? TAcc : CreateStringTuple<N, [...TAcc, string]>;
-export function useThemeColor(themeColor: ThemeColor): string;
-export function useThemeColor<T extends readonly [ThemeColor, ...ThemeColor[]]>(themeColor: T): CreateStringTuple<T["length"]>;
-export function useThemeColor(themeColor: ThemeColor[]): string[];
-export function useThemeColor(themeColor: ThemeColor | ThemeColor[]): string | string[] {
-  const isArray = Array.isArray(themeColor);
-  const vars = isArray ? themeColor.map(c => \`--color-\${c}\`) : [\`--color-\${themeColor}\`];
-  const resolved = useCSSVariable(vars);
-  const processed = resolved.map(c => typeof c === "string" ? c : typeof c === "number" ? String(c) : "invalid");
-  return isArray ? processed : processed[0]!;
-}
-`);
-
-  zip.file("src/components/container.tsx", `import type { PropsWithChildren } from "react";
-import { View, ScrollView, type ViewProps } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { cn } from "@/lib/utils/cn";
-
-type Props = ViewProps & { className?: string };
-
-export function Container({ children, className, style, ...props }: PropsWithChildren<Props>) {
-  const insets = useSafeAreaInsets();
-  return (
-    <View
-      className={cn("flex-1 bg-background", className)}
-      style={[{ paddingBottom: insets.bottom }, style]}
-      {...props}
-    >
-      <ScrollView contentContainerStyle={{ flexGrow: 1 }}>{children}</ScrollView>
-    </View>
-  );
-}
-`);
-
-  zip.file("src/components/ui/text.tsx", `import * as Slot from "@rn-primitives/slot";
-import { cva, type VariantProps } from "class-variance-authority";
-import React from "react";
-import { Platform, Text as RNText, type Role } from "react-native";
-import { cn } from "@/lib/utils/cn";
-
-const textVariants = cva(cn("text-base text-foreground", Platform.select({ web: "select-text" })), {
-  variants: {
-    variant: {
-      default: "",
-      h1: cn("text-center font-extrabold text-4xl tracking-tight", Platform.select({ web: "scroll-m-20 text-balance" })),
-      h2: cn("border-border border-b pb-2 font-semibold text-3xl tracking-tight", Platform.select({ web: "scroll-m-20 first:mt-0" })),
-      h3: cn("font-semibold text-2xl tracking-tight", Platform.select({ web: "scroll-m-20" })),
-      h4: cn("font-semibold text-xl tracking-tight", Platform.select({ web: "scroll-m-20" })),
-      p: "mt-3 leading-7 sm:mt-6",
-      blockquote: "mt-4 border-l-2 pl-3 italic sm:mt-6 sm:pl-6",
-      code: "relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono font-semibold text-sm",
-      lead: "text-muted-foreground text-xl",
-      large: "font-semibold text-lg",
-      small: "font-medium text-sm leading-none",
-      muted: "text-muted-foreground text-sm",
-    },
-  },
-  defaultVariants: { variant: "default" },
-});
-
-type TextVariantProps = VariantProps<typeof textVariants>;
-type TextVariant = NonNullable<TextVariantProps["variant"]>;
-
-const ROLE: Partial<Record<TextVariant, Role>> = { h1: "heading", h2: "heading", h3: "heading", h4: "heading" };
-const ARIA_LEVEL: Partial<Record<TextVariant, string>> = { h1: "1", h2: "2", h3: "3", h4: "4" };
-const TextClassContext = React.createContext<string | undefined>(undefined);
-
-function Text({ className, asChild = false, variant = "default", ...props }: React.ComponentProps<typeof RNText> & TextVariantProps & React.RefAttributes<RNText> & { asChild?: boolean }) {
-  const textClass = React.useContext(TextClassContext);
-  const Component = asChild ? Slot.Text : RNText;
-  return <Component aria-level={variant ? ARIA_LEVEL[variant] : undefined} className={cn(textVariants({ variant }), textClass, className)} role={variant ? ROLE[variant] : undefined} {...props} />;
-}
-
-export { Text, TextClassContext };
-`);
-
-  zip.file("src/components/ui/button.tsx", `import { cva, type VariantProps } from "class-variance-authority";
-import { Platform, Pressable } from "react-native";
-import { TextClassContext } from "@/components/ui/text";
-import { cn } from "@/lib/utils/cn";
-
-const buttonVariants = cva(
-  cn("group shrink-0 flex-row items-center justify-center gap-2 rounded-md shadow-none", Platform.select({ web: "whitespace-nowrap outline-none transition-all disabled:pointer-events-none" })),
-  {
-    variants: {
-      variant: {
-        default: cn("bg-primary shadow-black/5 shadow-sm active:bg-primary/90", Platform.select({ web: "hover:bg-primary/90" })),
-        destructive: cn("bg-destructive shadow-black/5 shadow-sm active:bg-destructive/90", Platform.select({ web: "hover:bg-destructive/90" })),
-        outline: cn("border border-border bg-background shadow-black/5 shadow-sm active:bg-accent dark:border-input dark:bg-input/30", Platform.select({ web: "hover:bg-accent" })),
-        secondary: cn("bg-secondary shadow-black/5 shadow-sm active:bg-secondary/80", Platform.select({ web: "hover:bg-secondary/80" })),
-        ghost: cn("active:bg-accent dark:active:bg-accent/50", Platform.select({ web: "hover:bg-accent" })),
-        link: "",
-      },
-      size: {
-        default: cn("h-10 px-4 py-2 sm:h-9", Platform.select({ web: "has-[>svg]:px-3" })),
-        sm: cn("h-9 gap-1.5 rounded-md px-3 sm:h-8", Platform.select({ web: "has-[>svg]:px-2.5" })),
-        lg: cn("h-11 rounded-md px-6 sm:h-10", Platform.select({ web: "has-[>svg]:px-4" })),
-        icon: "h-10 w-10 sm:h-9 sm:w-9",
-      },
-    },
-    defaultVariants: { variant: "default", size: "default" },
-  }
-);
-
-const buttonTextVariants = cva(cn("font-medium text-foreground text-sm", Platform.select({ web: "pointer-events-none transition-colors" })), {
-  variants: {
-    variant: {
-      default: "text-primary-foreground",
-      destructive: "text-white",
-      outline: cn("group-active:text-accent-foreground", Platform.select({ web: "group-hover:text-accent-foreground" })),
-      secondary: "text-secondary-foreground",
-      ghost: "group-active:text-accent-foreground",
-      link: cn("text-primary group-active:underline", Platform.select({ web: "underline-offset-4 group-hover:underline" })),
-    },
-    size: { default: "", sm: "", lg: "", icon: "" },
-  },
-  defaultVariants: { variant: "default", size: "default" },
-});
-
-type ButtonProps = React.ComponentProps<typeof Pressable> & React.RefAttributes<typeof Pressable> & VariantProps<typeof buttonVariants>;
-
-function Button({ className, variant, size, ...props }: ButtonProps) {
-  return (
-    <TextClassContext.Provider value={buttonTextVariants({ variant, size })}>
-      <Pressable className={cn(props.disabled && "opacity-50", buttonVariants({ variant, size }), className)} role="button" {...props} />
-    </TextClassContext.Provider>
-  );
-}
-
-export { Button, buttonTextVariants, buttonVariants };
-export type { ButtonProps };
-`);
-
-  zip.file("src/components/ui/card.tsx", `import { View, type ViewProps } from "react-native";
-import { Text, TextClassContext } from "@/components/ui/text";
-import { cn } from "@/lib/utils/cn";
-
-function Card({ className, ...props }: ViewProps & React.RefAttributes<View>) {
-  return <TextClassContext.Provider value="text-card-foreground"><View className={cn("flex flex-col gap-6 rounded-xl border border-border bg-card py-6 shadow-black/5 shadow-sm", className)} {...props} /></TextClassContext.Provider>;
-}
-function CardHeader({ className, ...props }: ViewProps & React.RefAttributes<View>) {
-  return <View className={cn("flex flex-col gap-1.5 px-6", className)} {...props} />;
-}
-function CardTitle({ className, ...props }: React.ComponentProps<typeof Text> & React.RefAttributes<Text>) {
-  return <Text aria-level={3} className={cn("font-semibold leading-none", className)} role="heading" {...props} />;
-}
-function CardDescription({ className, ...props }: React.ComponentProps<typeof Text> & React.RefAttributes<Text>) {
-  return <Text className={cn("text-muted-foreground text-sm", className)} {...props} />;
-}
-function CardContent({ className, ...props }: ViewProps & React.RefAttributes<View>) {
-  return <View className={cn("px-6", className)} {...props} />;
-}
-function CardFooter({ className, ...props }: ViewProps & React.RefAttributes<View>) {
-  return <View className={cn("flex flex-row items-center px-6", className)} {...props} />;
-}
-export { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle };
-`);
-
-  zip.file("src/contexts/app-theme-context.tsx", `import type React from "react";
-import { createContext, useCallback, useContext, useMemo } from "react";
-import { Uniwind, useUniwind } from "uniwind";
-
-type ThemeName = "light" | "dark";
-interface AppThemeContextType {
-  currentTheme: string; isLight: boolean; isDark: boolean;
-  setTheme: (theme: ThemeName) => void; toggleTheme: () => void;
-}
-const AppThemeContext = createContext<AppThemeContextType | undefined>(undefined);
-
-export const AppThemeProvider = ({ children }: { children: React.ReactNode }) => {
-  const { theme } = useUniwind();
-  const isLight = useMemo(() => theme === "light", [theme]);
-  const isDark = useMemo(() => theme === "dark", [theme]);
-  const setTheme = useCallback((newTheme: ThemeName) => { Uniwind.setTheme(newTheme); }, []);
-  const toggleTheme = useCallback(() => { Uniwind.setTheme(theme === "light" ? "dark" : "light"); }, [theme]);
-  const value = useMemo(() => ({ currentTheme: theme, isLight, isDark, setTheme, toggleTheme }), [theme, isLight, isDark, setTheme, toggleTheme]);
-  return <AppThemeContext.Provider value={value}>{children}</AppThemeContext.Provider>;
-};
-
-export function useAppTheme() {
-  const context = useContext(AppThemeContext);
-  if (!context) throw new Error("useAppTheme must be within AppThemeProvider");
-  return context;
-}
-`);
-
-  // ── README ───────────────────────────────────────────────────────────────────
-  zip.file("README.md", `# ${appName}
-
-Generated by [Evermade](https://evermade.app) — AI-powered mobile app builder.
-
-## Getting started
-
-\`\`\`bash
-bun install
-bun run dev
-\`\`\`
-
-## Running on device
-
-Install **Expo Go** from the App Store / Play Store, then scan the QR code.
-
-## Stack
-
-- Expo Router (file-based navigation)
-- NativeWind (Tailwind CSS for React Native)
-- shadcn-style UI components
-`);
 
   // ── Placeholder PNG assets ───────────────────────────────────────────────────
-  const darkPng = solidPng(9, 9, 11);   // #09090b
-  const lightPng = solidPng(250, 250, 250); // #fafafa
-  zip.file("assets/images/icon.png", lightPng);
-  zip.file("assets/images/splash-icon.png", darkPng);
-  zip.file("assets/images/android-icon-background.png", darkPng);
-  zip.file("assets/images/android-icon-foreground.png", lightPng);
-  zip.file("assets/images/android-icon-monochrome.png", lightPng);
-  zip.file("assets/images/favicon.png", lightPng);
+  const darkPng = solidPng(9, 9, 11);
+  const lightPng = solidPng(250, 250, 250);
+  zip.file("assets/icon.png", lightPng);
+  zip.file("assets/splash.png", darkPng);
+
+  return zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
+}
+
+// ── Claude files ZIP assembler ────────────────────────────────────────────────
+// Takes the raw file map from convertSleekPromptToExpoApp and wraps it in a
+// runnable Expo project with the correct package.json and config files.
+export async function assembleClaudeZip(
+  appName: string,
+  files: Record<string, string>,
+): Promise<Buffer> {
+  const zip = new JSZip();
+  const slug = toSlug(appName);
+
+  // ── package.json ────────────────────────────────────────────────────────────
+  zip.file("package.json", JSON.stringify({
+    name: slug,
+    version: "1.0.0",
+    main: "expo-router/entry",
+    scripts: { start: "expo start" },
+    dependencies: {
+      expo: "~54.0.0",
+      "expo-router": "~4.0.0",
+      react: "18.3.1",
+      "react-native": "0.76.9",
+      "expo-linear-gradient": "~14.0.0",
+      "react-native-safe-area-context": "4.12.0",
+      "react-native-screens": "~4.4.0",
+      "@expo/vector-icons": "^14.0.0",
+    },
+    devDependencies: {
+      "babel-preset-expo": "~13.0.0",
+      typescript: "~5.3.0",
+    },
+  }, null, 2));
+
+  // ── app.json ────────────────────────────────────────────────────────────────
+  zip.file("app.json", JSON.stringify({
+    expo: {
+      name: appName,
+      slug,
+      scheme: slug,
+      version: "1.0.0",
+      platforms: ["ios", "android"],
+      sdkVersion: "54.0.0",
+      orientation: "portrait",
+      icon: "./assets/icon.png",
+      splash: { image: "./assets/splash.png", resizeMode: "contain", backgroundColor: "#09090b" },
+    },
+  }, null, 2));
+
+  // ── tsconfig.json ────────────────────────────────────────────────────────────
+  zip.file("tsconfig.json", JSON.stringify({
+    extends: "expo/tsconfig.base",
+    compilerOptions: { strict: true },
+  }, null, 2));
+
+  // ── babel.config.js ─────────────────────────────────────────────────────────
+  zip.file("babel.config.js", `module.exports = function(api) {
+  api.cache(true);
+  return { presets: ["babel-preset-expo"] };
+};
+`);
+
+  // ── Claude-generated app files ───────────────────────────────────────────────
+  for (const [path, content] of Object.entries(files)) {
+    zip.file(path, content);
+  }
+
+  // ── Placeholder PNG assets ───────────────────────────────────────────────────
+  const darkPng = solidPng(9, 9, 11);
+  const lightPng = solidPng(250, 250, 250);
+  zip.file("assets/icon.png", lightPng);
+  zip.file("assets/splash.png", darkPng);
 
   return zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
 }

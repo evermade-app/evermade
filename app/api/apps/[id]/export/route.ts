@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/nextauth";
 import {
   assembleExpoStarterZip,
+  assembleClaudeZip,
   buildExpoStarterTabsLayout,
   buildExpoStarterRootLayout,
   type ExpoStarterScreen,
@@ -124,30 +125,41 @@ export async function POST(
     }
 
     const body = await req.json();
-    const { appName, screens, navigation } = body as {
+    const { appName, screens, navigation, claudeFiles } = body as {
       appName: string;
       screens: Array<{ screenName: string; componentName: string; code: string }>;
       navigation?: { appTsx: string; navigatorTsx: string };
+      claudeFiles?: Record<string, string>;
     };
 
-    if (!appName || !Array.isArray(screens) || screens.length === 0) {
-      return NextResponse.json({ error: "appName and screens are required" }, { status: 400 });
+    if (!appName) {
+      return NextResponse.json({ error: "appName is required" }, { status: 400 });
     }
 
-    const expoScreens: ExpoStarterScreen[] = screens.map((s) => ({
-      screenName: s.screenName,
-      componentName: s.componentName,
-      code: s.code,
-      isOnboarding: s.screenName.toLowerCase().includes("onboard"),
-    }));
-    const screensForNav = expoScreens.map((s) => ({
-      screenName: s.screenName,
-      componentName: s.componentName,
-      isOnboarding: s.isOnboarding,
-    }));
-    const tabsLayout = navigation?.navigatorTsx ?? buildExpoStarterTabsLayout(screensForNav);
-    const rootLayout = navigation?.appTsx ?? buildExpoStarterRootLayout(appName);
-    const zip = await assembleExpoStarterZip(appName, expoScreens, tabsLayout, rootLayout);
+    let zip: Buffer;
+
+    // If the caller passes the raw Claude file map, use it directly
+    if (claudeFiles && Object.keys(claudeFiles).length > 0) {
+      zip = await assembleClaudeZip(appName, claudeFiles);
+    } else {
+      if (!Array.isArray(screens) || screens.length === 0) {
+        return NextResponse.json({ error: "screens array is required and must not be empty" }, { status: 400 });
+      }
+      const expoScreens: ExpoStarterScreen[] = screens.map((s) => ({
+        screenName: s.screenName,
+        componentName: s.componentName,
+        code: s.code,
+        isOnboarding: s.screenName.toLowerCase().includes("onboard"),
+      }));
+      const screensForNav = expoScreens.map((s) => ({
+        screenName: s.screenName,
+        componentName: s.componentName,
+        isOnboarding: s.isOnboarding,
+      }));
+      const tabsLayout = navigation?.navigatorTsx ?? buildExpoStarterTabsLayout(screensForNav);
+      const rootLayout = navigation?.appTsx ?? buildExpoStarterRootLayout(appName);
+      zip = await assembleExpoStarterZip(appName, expoScreens, tabsLayout, rootLayout);
+    }
     const filename = `${appName.replace(/[^a-zA-Z0-9]/g, "_").toLowerCase()}-expo.zip`;
 
     return new NextResponse(new Uint8Array(zip), {

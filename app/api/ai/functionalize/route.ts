@@ -1,12 +1,7 @@
 import { type NextRequest } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/nextauth";
-import {
-  generateExpoStarterScreen,
-  buildExpoStarterTabsLayout,
-  buildExpoStarterRootLayout,
-  type ScreenForTabs,
-} from "@/lib/evermade/sleek/expo-starter";
+import { getSleekAIPrompt, convertSleekPromptToExpoApp } from "@/lib/evermade/sleek/sleek-to-rn";
 
 interface InputScreen {
   id: string;
@@ -47,7 +42,6 @@ function sseChunk(event: SSEEvent): Uint8Array {
   return new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`);
 }
 
-// Derive a stable PascalCase component name from the screen's display name.
 function toComponentName(screenName: string): string {
   const safe = screenName.replace(/[^a-zA-Z0-9 ]/g, "").trim();
   return (
@@ -58,20 +52,13 @@ function toComponentName(screenName: string): string {
   );
 }
 
-function isOnboarding(screenName: string): boolean {
-  return screenName.toLowerCase().includes("onboard");
-}
-
-const SCREEN_DELAY_MS = 3_000;
-const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
-
 // ── POST /api/ai/functionalize ──────────────────────────────────────────────
-// Streams SSE events:
-//   1. For each screen: calls GPT-4o-mini to generate a real NativeWind screen
-//      using the expo-starter template (Container + NativeWind className styling).
-//   2. Generates the Expo Router tabs layout from screen names.
+// Streams SSE events using the Claude-based pipeline:
+//   1. Sends all screen HTML to Claude via convertSleekPromptToExpoApp()
+//   2. Emits screen_done for each file Claude generates
+//   3. Emits navigation_done with the layout files
 //
-// Body: { appName: string, screens: InputScreen[], prompt?: string }
+// Body: { appName: string, screens: InputScreen[], sleekProjectId?: string }
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) {
@@ -80,12 +67,13 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json() as {
     appName?: string;
-    prompt?: string;
     screens?: InputScreen[];
+    sleekProjectId?: string;
   };
 
   const appName = body?.appName?.trim() ?? "My App";
   const screens: InputScreen[] = Array.isArray(body?.screens) ? body.screens : [];
+  const sleekProjectId = body?.sleekProjectId ?? null;
 
   if (screens.length === 0) {
     return Response.json({ error: "screens array is required and must not be empty" }, { status: 400 });
@@ -96,15 +84,27 @@ export async function POST(req: NextRequest) {
       const send = (event: SSEEvent) => controller.enqueue(sseChunk(event));
 
       try {
-        // ── Phase 1: Generate screens via GPT-4o-mini (expo-starter NativeWind) ──
-        const screensForNav: ScreenForTabs[] = [];
+        // ── Phase 1: Show initial progress while Claude thinks ──────────────
+        send({
+          type: "progress",
+          step: "screen",
+          index: 0,
+          total: screens.length,
+          name: "Building app with AI…",
+        });
+
+        // ── Phase 2: Get Sleek AI prompt and call Claude ─────────────────────
+        const sleekPrompt = await getSleekAIPrompt(sleekProjectId, screens);
+        const { files } = await convertSleekPromptToExpoApp(sleekPrompt, appName);
+
+        // ── Phase 3: Map Claude files to screen_done events ──────────────────
+        const LAYOUT_PATHS = new Set(["app/_layout.tsx", "app/(tabs)/_layout.tsx"]);
+        const screenFiles = Object.entries(files).filter(([path]) => !LAYOUT_PATHS.has(path));
 
         for (let i = 0; i < screens.length; i++) {
-          if (i > 0) await sleep(SCREEN_DELAY_MS);
-
           const screen = screens[i]!;
           const componentName = toComponentName(screen.name);
-          const onboarding = isOnboarding(screen.name);
+          const rnCode = screenFiles[i]?.[1] ?? "";
 
           send({
             type: "progress",
@@ -114,23 +114,14 @@ export async function POST(req: NextRequest) {
             name: screen.name,
           });
 
-          let rnCode: string;
-          try {
-            rnCode = await generateExpoStarterScreen(screen.name, componentName, screen.html);
-          } catch (err) {
-            console.warn(`[functionalize] screen "${screen.name}" failed, using placeholder:`, err);
-            rnCode = buildPlaceholderScreen(componentName, screen.name);
-          }
-
-          screensForNav.push({ screenName: screen.name, componentName, isOnboarding: onboarding });
           send({ type: "screen_done", index: i, id: screen.id, componentName, rnCode });
         }
 
-        // ── Phase 2: Generate Expo Router tabs layout ─────────────────────────
-        send({ type: "progress", step: "navigation", message: "Building navigation…" });
+        // ── Phase 4: Emit navigation files ───────────────────────────────────
+        send({ type: "progress", step: "navigation", message: "Wiring navigation…" });
 
-        const navigatorTsx = buildExpoStarterTabsLayout(screensForNav);
-        const appTsx = buildExpoStarterRootLayout(appName);
+        const appTsx = files["app/_layout.tsx"] ?? buildFallbackRootLayout();
+        const navigatorTsx = files["app/(tabs)/_layout.tsx"] ?? buildFallbackTabsLayout(screens.map((s) => toComponentName(s.name)));
 
         send({ type: "navigation_done", appTsx, navigatorTsx });
         send({ type: "done" });
@@ -153,21 +144,36 @@ export async function POST(req: NextRequest) {
   });
 }
 
-// Fallback placeholder if GPT call fails for a screen
-function buildPlaceholderScreen(componentName: string, screenName: string): string {
-  const label = screenName.replace(/Screen$/i, "").trim() || screenName;
-  return `import { Container } from "@/components/container";
-import { Text } from "@/components/ui/text";
-import { View } from "react-native";
+function buildFallbackRootLayout(): string {
+  return `import { Stack } from "expo-router";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
-export default function ${componentName}() {
+export default function Layout() {
   return (
-    <Container className="p-6">
-      <View className="flex-1 items-center justify-center gap-3">
-        <Text variant="h3" className="text-foreground">${label}</Text>
-        <Text className="text-muted-foreground text-sm">Screen placeholder</Text>
-      </View>
-    </Container>
+    <SafeAreaProvider>
+      <Stack screenOptions={{ headerShown: false }} />
+    </SafeAreaProvider>
+  );
+}
+`;
+}
+
+function buildFallbackTabsLayout(componentNames: string[]): string {
+  const tabs = componentNames.slice(0, 5);
+  const screenLines = tabs
+    .map((name) => {
+      const route = name.replace(/Screen$/, "").toLowerCase();
+      return `      <Tabs.Screen name="${route}" options={{ title: "${name.replace(/Screen$/, "")}" }} />`;
+    })
+    .join("\n");
+
+  return `import { Tabs } from "expo-router";
+
+export default function TabLayout() {
+  return (
+    <Tabs screenOptions={{ headerShown: false }}>
+${screenLines}
+    </Tabs>
   );
 }
 `;

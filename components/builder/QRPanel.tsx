@@ -151,7 +151,7 @@ function FunctionalizeSection({ sleekApp, onDone }: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           appName: sleekApp.appName,
-          prompt: sleekApp.appName,
+          sleekProjectId: sleekApp.id,
           screens: sleekApp.screens.map((s) => ({
             id: s.id,
             name: s.name,
