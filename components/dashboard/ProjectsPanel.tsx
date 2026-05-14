@@ -352,13 +352,19 @@ export default function ProjectsPanel() {
   if (loading) {
     return (
       <section style={{ width: "100%", maxWidth: 1200, margin: "0 auto", padding: "0 48px 96px" }}>
-        <div className="evermade-shimmer-shell" style={{ borderRadius: 20, padding: 1.5 }}>
-          <div style={{ borderRadius: 19, background: "rgba(8,8,14,0.82)", backdropFilter: "blur(32px)", padding: "22px 22px" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 16 }}>
-              {[...Array(4)].map((_, i) => (
-                <div key={i} style={{ height: 160, borderRadius: 10, background: "rgba(255,255,255,0.04)", animation: "pulse 1.5s ease-in-out infinite" }} />
-              ))}
-            </div>
+        <div style={{
+          borderRadius: 20,
+          background: "rgba(8,8,14,0.88)",
+          backdropFilter: "blur(32px) saturate(1.4)",
+          WebkitBackdropFilter: "blur(32px) saturate(1.4)",
+          border: "1px solid rgba(255,255,255,0.07)",
+          boxShadow: "0 8px 48px rgba(0,0,0,0.5)",
+          padding: "22px 22px",
+        }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))", gap: 16 }}>
+            {[...Array(4)].map((_, i) => (
+              <div key={i} style={{ height: 160, borderRadius: 10, background: "rgba(255,255,255,0.04)", animation: "pulse 1.5s ease-in-out infinite" }} />
+            ))}
           </div>
         </div>
       </section>
@@ -384,18 +390,16 @@ export default function ProjectsPanel() {
       padding: "0 48px 96px",
     }}>
       {/* Outer glass shell */}
-      <div
-        className="evermade-shimmer-shell"
-        style={{ borderRadius: 20, padding: 1.5 }}
-      >
-        <div style={{
-          borderRadius: 19,
-          background: "rgba(8,8,14,0.82)",
-          backdropFilter: "blur(32px) saturate(1.3)",
-          WebkitBackdropFilter: "blur(32px) saturate(1.3)",
-          overflow: "hidden",
-          position: "relative", zIndex: 2,
-        }}>
+      <div style={{
+        borderRadius: 20,
+        background: "rgba(8,8,14,0.88)",
+        backdropFilter: "blur(32px) saturate(1.4)",
+        WebkitBackdropFilter: "blur(32px) saturate(1.4)",
+        border: "1px solid rgba(255,255,255,0.07)",
+        boxShadow: "0 8px 48px rgba(0,0,0,0.5)",
+        overflow: "hidden",
+        position: "relative",
+      }}>
 
           {/* ── Panel header ── */}
           <div style={{
@@ -417,10 +421,10 @@ export default function ProjectsPanel() {
                     fontSize: 13,
                     fontWeight: tab === t.id ? 600 : 400,
                     background: tab === t.id
-                      ? "rgba(255,255,255,0.11)"
+                      ? "rgba(204,255,0,0.1)"
                       : "transparent",
                     color: tab === t.id
-                      ? "#fff"
+                      ? "#CCFF00"
                       : "rgba(255,255,255,0.4)",
                     transition: "all 0.15s ease",
                     outline: "none",
@@ -478,7 +482,6 @@ export default function ProjectsPanel() {
           </div>
 
         </div>
-      </div>
     </section>
   );
 }

@@ -135,25 +135,32 @@ export default function PromptArea({ authenticated = false }: PromptAreaProps) {
   }
 
   return (
-    <div className="flex min-w-0 flex-col gap-4">
-      <span className="text-[13px] font-medium uppercase tracking-wider" style={{ color: "rgba(255,255,255,0.45)" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
+      <span style={{
+        fontSize: 11,
+        fontWeight: 700,
+        letterSpacing: "0.08em",
+        textTransform: "uppercase",
+        color: "rgba(255,255,255,0.3)",
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', sans-serif",
+      }}>
         Describe your app
       </span>
 
       <div
-        className="relative rounded-2xl"
         style={{
-          background: "rgba(255,255,255,0.05)",
-          border: "1px solid rgba(255,255,255,0.10)",
-          boxShadow: "inset 0 1px 3px rgba(0,0,0,0.10)",
+          position: "relative",
+          borderRadius: 14,
+          background: "rgba(255,255,255,0.03)",
+          border: "1px solid rgba(255,255,255,0.07)",
         }}
       >
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder={PLACEHOLDER}
-          className="w-full resize-none border-none bg-transparent p-4 text-sm leading-[1.7] text-white/85 outline-none placeholder:text-white/30 md:p-6 md:text-[17px]"
-          style={{ caretColor: "#7C5CFF", minHeight: 90 }}
+          className="w-full resize-none border-none bg-transparent p-4 text-sm leading-[1.7] text-white/85 outline-none placeholder:text-white/25 md:p-5 md:text-[15px]"
+          style={{ caretColor: "#CCFF00", minHeight: 80 }}
         />
 
         {attachedFiles.length > 0 && (
@@ -173,8 +180,8 @@ export default function PromptArea({ authenticated = false }: PromptAreaProps) {
         )}
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <input type="file" ref={fileInputRef} className="hidden" multiple
             onChange={(e) => { if (e.target.files) setAttachedFiles((p) => [...p, ...Array.from(e.target.files!)]); e.target.value = ""; }}
           />
@@ -182,8 +189,18 @@ export default function PromptArea({ authenticated = false }: PromptAreaProps) {
           {/* Attach */}
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium transition-all duration-200 hover:bg-white/10"
-            style={{ color: "rgba(255,255,255,0.4)", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              borderRadius: 999, padding: "5px 12px",
+              fontSize: 11.5, fontWeight: 500, cursor: "pointer",
+              color: "rgba(255,255,255,0.38)",
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.07)",
+              transition: "all 0.15s ease",
+              fontFamily: "inherit",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.07)"; e.currentTarget.style.color = "rgba(255,255,255,0.6)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = "rgba(255,255,255,0.38)"; }}
           >
             Attach
           </button>
@@ -192,11 +209,21 @@ export default function PromptArea({ authenticated = false }: PromptAreaProps) {
           <button
             ref={modelBtnRef}
             onClick={() => { setModelOpen((v) => !v); setTemplatesOpen(false); }}
-            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium transition-all duration-200 hover:bg-white/10"
-            style={{ color: "rgba(255,255,255,0.55)", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              borderRadius: 999, padding: "5px 12px",
+              fontSize: 11.5, fontWeight: 500, cursor: "pointer",
+              color: "rgba(255,255,255,0.5)",
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.07)",
+              transition: "all 0.15s ease",
+              fontFamily: "inherit",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.07)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
           >
             <span style={{ color: selectedModel.color, display: "flex", alignItems: "center" }}>{selectedModel.logo}</span>
-            <span className="max-w-[110px] truncate">{selectedModel.name}</span>
+            <span style={{ maxWidth: 110, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedModel.name}</span>
             <span style={{ fontSize: 7, opacity: 0.45 }}>{modelOpen ? "▲" : "▼"}</span>
           </button>
 
@@ -237,8 +264,18 @@ export default function PromptArea({ authenticated = false }: PromptAreaProps) {
           <button
             ref={templatesBtnRef}
             onClick={() => { setTemplatesOpen((v) => !v); setModelOpen(false); }}
-            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-medium transition-all duration-200 hover:bg-white/10"
-            style={{ color: "rgba(255,255,255,0.4)", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              borderRadius: 999, padding: "5px 12px",
+              fontSize: 11.5, fontWeight: 500, cursor: "pointer",
+              color: "rgba(255,255,255,0.38)",
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.07)",
+              transition: "all 0.15s ease",
+              fontFamily: "inherit",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.07)"; e.currentTarget.style.color = "rgba(255,255,255,0.6)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.color = "rgba(255,255,255,0.38)"; }}
           >
             Templates
           </button>
@@ -271,14 +308,27 @@ export default function PromptArea({ authenticated = false }: PromptAreaProps) {
 
         <button
           onClick={handleGenerate}
-          className="group flex items-center gap-2 rounded-full px-5 py-2 text-xs font-semibold text-white transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] md:px-7 md:py-2.5 md:text-sm"
           style={{
-            background: "linear-gradient(135deg, #1a1a1a 0%, #000000 100%)",
-            boxShadow: "0 0 16px 2px rgba(124,92,255,0.25), 0 2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08)",
+            display: "flex", alignItems: "center", gap: 8,
+            borderRadius: 999, padding: "9px 22px",
+            fontSize: 13, fontWeight: 700, cursor: "pointer",
+            color: "#000",
+            background: text.trim() ? "#CCFF00" : "rgba(204,255,0,0.55)",
+            border: "none",
+            boxShadow: text.trim()
+              ? "0 4px 20px rgba(204,255,0,0.35), 0 0 0 1px rgba(204,255,0,0.2)"
+              : "none",
+            transition: "all 0.2s ease",
+            fontFamily: "inherit",
+            letterSpacing: -0.1,
           }}
+          onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.03)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; }}
+          onMouseDown={(e) => { e.currentTarget.style.transform = "scale(0.98)"; }}
+          onMouseUp={(e) => { e.currentTarget.style.transform = "scale(1.03)"; }}
         >
           Generate
-          <span className="transition-transform duration-200 group-hover:translate-x-0.5">→</span>
+          <span style={{ fontSize: 14 }}>→</span>
         </button>
       </div>
     </div>
