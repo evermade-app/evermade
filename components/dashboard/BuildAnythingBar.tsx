@@ -59,33 +59,33 @@ export default function BuildAnythingBar() {
         ref={containerRef}
         onMouseEnter={expand}
         onMouseLeave={collapse}
-        className={expanded ? "ev-bar-expanded" : "ev-bar-collapsed"}
+        className={`ev-lime-shell ${expanded ? "ev-bar-expanded" : "ev-bar-collapsed"}`}
         style={{
-          position: "relative",
           width: expanded ? 620 : 190,
           height: expanded ? 108 : 44,
           borderRadius: expanded ? 20 : 999,
-          background: "rgba(8,8,14,0.88)",
-          backdropFilter: "blur(32px) saturate(1.4)",
-          WebkitBackdropFilter: "blur(32px) saturate(1.4)",
-          border: expanded
-            ? "1px solid rgba(204,255,0,0.22)"
-            : "1px solid rgba(255,255,255,0.1)",
           boxShadow: expanded
-            ? "0 8px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(204,255,0,0.06)"
+            ? "0 8px 40px rgba(0,0,0,0.5), 0 0 48px rgba(204,255,0,0.1)"
             : "0 4px 20px rgba(0,0,0,0.4)",
           cursor: expanded ? "default" : "pointer",
-          overflow: "hidden",
           transition: [
             "width 0.42s cubic-bezier(0.22,1,0.36,1)",
             "height 0.42s cubic-bezier(0.22,1,0.36,1)",
             "border-radius 0.42s cubic-bezier(0.22,1,0.36,1)",
-            "border-color 0.3s ease",
             "box-shadow 0.3s ease",
           ].join(", "),
         }}
         onClick={expanded ? undefined : expand}
       >
+        <div
+          className="ev-lime-inner"
+          style={{
+            borderRadius: expanded ? 18.5 : 997.5,
+            width: "100%",
+            height: "100%",
+            transition: "border-radius 0.42s cubic-bezier(0.22,1,0.36,1)",
+          }}
+        >
 
         {/* ── Collapsed label ── */}
         <div style={{
@@ -215,7 +215,8 @@ export default function BuildAnythingBar() {
           </div>
         </div>
 
-      </div>
+        </div>{/* ev-lime-inner */}
+      </div>{/* ev-lime-shell */}
     </div>
   );
 }

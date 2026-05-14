@@ -313,10 +313,10 @@ export default function PromptArea({ authenticated = false }: PromptAreaProps) {
             borderRadius: 999, padding: "9px 22px",
             fontSize: 13, fontWeight: 700, cursor: "pointer",
             color: "#000",
-            background: text.trim() ? "#CCFF00" : "rgba(204,255,0,0.55)",
+            background: text.trim() ? "linear-gradient(135deg,#E8FF00,#CCFF00,#B8FF00)" : "rgba(204,255,0,0.45)",
             border: "none",
             boxShadow: text.trim()
-              ? "0 4px 20px rgba(204,255,0,0.35), 0 0 0 1px rgba(204,255,0,0.2)"
+              ? "0 4px 24px rgba(204,255,0,0.6), 0 0 48px rgba(204,255,0,0.22), 0 0 0 1px rgba(204,255,0,0.35) inset"
               : "none",
             transition: "all 0.2s ease",
             fontFamily: "inherit",

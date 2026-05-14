@@ -290,3 +290,53 @@ textarea {
   pointer-events: none;
   z-index: 1;
 }
+
+/* ── Lime spotlight border ──────────────────────────────────────────────────
+   Usage: wrap any block in <div class="ev-lime-shell" style="border-radius:Xpx">
+          then put content in <div class="ev-lime-inner" style="border-radius:Xpx">
+   The 1.5px padding on the shell creates the border thickness.
+   The conic-gradient spotlight spins around the border.
+────────────────────────────────────────────────────────────────────────── */
+@keyframes evLimeSpin {
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+.ev-lime-shell {
+  position: relative;
+  padding: 1.5px;
+  overflow: hidden;
+}
+
+.ev-lime-shell::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 200%;
+  height: 200%;
+  /* Spotlight: dark base with one vivid lime hot-spot */
+  background: conic-gradient(
+    from 0deg,
+    rgba(204, 255, 0, 0.04)  0deg,
+    rgba(204, 255, 0, 0.04)  70deg,
+    rgba(204, 255, 0, 0.35)  88deg,
+    rgba(204, 255, 0, 0.95) 100deg,
+    rgba(230, 255, 60, 1.0) 110deg,
+    rgba(204, 255, 0, 0.95) 120deg,
+    rgba(204, 255, 0, 0.35) 132deg,
+    rgba(204, 255, 0, 0.04) 150deg,
+    rgba(204, 255, 0, 0.04) 360deg
+  );
+  transform: translate(-50%, -50%) rotate(0deg);
+  animation: evLimeSpin 3.5s linear infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.ev-lime-inner {
+  position: relative;
+  z-index: 1;
+  background: rgba(8, 8, 14, 0.92);
+  backdrop-filter: blur(32px) saturate(1.4);
+  -webkit-backdrop-filter: blur(32px) saturate(1.4);
+}

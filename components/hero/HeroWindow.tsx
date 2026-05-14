@@ -9,18 +9,21 @@ interface HeroWindowProps {
 export default function HeroWindow({ authenticated = false }: HeroWindowProps) {
   return (
     <div className="relative w-full max-w-[760px] mx-auto mt-5">
+      {/* Outer shell carries the spinning lime border */}
       <div
+        className="ev-lime-shell"
         style={{
-          padding: "20px 22px 18px",
-          borderRadius: 20,
-          background: "rgba(8,8,14,0.88)",
-          backdropFilter: "blur(32px) saturate(1.4)",
-          WebkitBackdropFilter: "blur(32px) saturate(1.4)",
-          border: "1px solid rgba(204,255,0,0.2)",
-          boxShadow: "0 8px 48px rgba(0,0,0,0.55), 0 0 0 1px rgba(204,255,0,0.06), 0 0 32px rgba(204,255,0,0.06)",
+          borderRadius: 21.5,
+          boxShadow: "0 8px 48px rgba(0,0,0,0.55), 0 0 48px rgba(204,255,0,0.07)",
         }}
       >
-        <PromptArea authenticated={authenticated} />
+        {/* Inner carries the dark background */}
+        <div
+          className="ev-lime-inner"
+          style={{ borderRadius: 20, padding: "20px 22px 18px" }}
+        >
+          <PromptArea authenticated={authenticated} />
+        </div>
       </div>
     </div>
   );
