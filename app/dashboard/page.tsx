@@ -8,6 +8,7 @@ import HeroWindow from "@/components/hero/HeroWindow";
 import DashboardHeroNav from "@/components/dashboard/DashboardHeroNav";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
 import ProjectsPanel from "@/components/dashboard/ProjectsPanel";
+import BuildAnythingBar from "@/components/dashboard/BuildAnythingBar";
 import { useSession } from "next-auth/react";
 
 const USER_SCOPED_KEYS = [
@@ -84,6 +85,9 @@ export default function DashboardPage() {
         }}>
           <ProjectsPanel />
         </div>
+
+        {/* ── Build anything bar ── */}
+        <BuildAnythingBar />
       </div>
     </>
   );
