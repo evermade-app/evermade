@@ -206,7 +206,7 @@ function LoginPageInner() {
     }}>
 
       {/* ── Left panel ── */}
-      <div style={{
+      <div id="login-left" style={{
         flex: "0 0 50%",
         display: "flex",
         alignItems: "center",
@@ -299,7 +299,7 @@ function LoginPageInner() {
       </div>
 
       {/* ── Right panel — video + prompt card ── */}
-      <div style={{
+      <div id="login-right" style={{
         flex: "0 0 50%",
         position: "relative",
         background: "#0a0a0a",
@@ -347,11 +347,17 @@ function LoginPageInner() {
         </div>
       </div>
 
-      {/* Mobile: hide right panel */}
       <style>{`
         @media (max-width: 768px) {
           #login-right { display: none !important; }
-          #login-left { flex: 1 1 100% !important; }
+          #login-left {
+            flex: 1 1 100% !important;
+            padding: 40px 24px 48px !important;
+            min-height: 100svh !important;
+          }
+          #login-left > div {
+            max-width: 100% !important;
+          }
         }
       `}</style>
     </div>

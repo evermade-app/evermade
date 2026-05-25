@@ -35,17 +35,17 @@ export default function HeroNav() {
         ))}
       </div>
 
-      <div className="hidden md:flex items-center gap-3">
+      <div className="flex items-center gap-2 md:gap-3">
         <Link
           href="/login?next=%2Fdashboard"
-          className="text-white/80 hover:text-white px-4 py-2 text-sm transition-colors"
+          className="text-white/80 hover:text-white px-3 md:px-4 text-xs md:text-sm transition-colors inline-flex items-center min-h-[44px]"
         >
           Log In
         </Link>
 
         <Link
           href="/signup?next=%2Fdashboard"
-          className="text-black px-6 py-2 text-sm font-semibold transition-all duration-300 hover:scale-[1.03] active:scale-[0.98]"
+          className="text-black px-4 md:px-6 text-xs md:text-sm font-semibold transition-all duration-300 hover:scale-[1.03] active:scale-[0.98] inline-flex items-center min-h-[44px]"
           style={{
             borderRadius: 999,
             background: "linear-gradient(135deg, #ffffff 0%, #e8e8e8 100%)",
