@@ -206,7 +206,7 @@ function SignupPageInner() {
     }}>
 
       {/* ── Left panel ── */}
-      <div style={{
+      <div id="signup-left" style={{
         flex: "0 0 50%",
         display: "flex",
         alignItems: "center",
@@ -298,7 +298,7 @@ function SignupPageInner() {
       </div>
 
       {/* ── Right panel — video + prompt card ── */}
-      <div style={{
+      <div id="signup-right" style={{
         flex: "0 0 50%",
         position: "relative",
         background: "#0a0a0a",
@@ -340,7 +340,14 @@ function SignupPageInner() {
       <style>{`
         @media (max-width: 768px) {
           #signup-right { display: none !important; }
-          #signup-left { flex: 1 1 100% !important; }
+          #signup-left {
+            flex: 1 1 100% !important;
+            padding: 40px 24px 48px !important;
+            min-height: 100svh !important;
+          }
+          #signup-left > div {
+            max-width: 100% !important;
+          }
         }
       `}</style>
     </div>
