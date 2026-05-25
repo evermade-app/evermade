@@ -47,7 +47,7 @@ export default function FooterSection() {
               <span style={{ fontSize: 22, fontWeight: 700, color: "#fff", letterSpacing: "-0.03em" }}>[evermade]</span>
             </a>
             <p style={{ margin: 0, fontSize: 16, fontWeight: 400, opacity: 0.6, color: "#fff", lineHeight: "1.6em" }}>
-              A web developer who&apos;s passionate about performance, security, and great user experience.
+              Turn your app idea into a complete, export-ready React Native app — powered by the world&apos;s best AI models.
             </p>
             <div style={{ display: "flex", gap: 16 }}>
               {SOCIALS.map((s) => (

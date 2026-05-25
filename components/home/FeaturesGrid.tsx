@@ -8,23 +8,23 @@ const ICON_BG = "https://framerusercontent.com/images/ZxhUSaGumFNAKNxQkF0oTN2raa
 
 const FEATURES = [
   {
-    title: "Reformat any text",
-    desc: "Defend against both common and rare threats with our ready-to-use rules — be ready in real-time.",
+    title: "Multi-model AI",
+    desc: "Pick Claude 4, GPT-5, or Gemini for each build. Every model, one platform — always the best output for your idea.",
     icon: "https://framerusercontent.com/images/9Zc3oIZ5HwmR7CRNyYbn20u8U9Q.svg",
   },
   {
-    title: "Onboarding support",
-    desc: "Track cross-border payment senders and receivers, making real-time decisions across 150+ currencies.",
+    title: "Chat-based editing",
+    desc: "Refine any screen by chatting with Evermade. Change a layout, swap a color, add a flow — instantly applied.",
     icon: "https://framerusercontent.com/images/z1XtjQHCo838ZUI2VVMTFiqP0.svg",
   },
   {
-    title: "100% Secure",
-    desc: "Streamline international payroll, compliance, tax deductions and filings.",
+    title: "Instant code export",
+    desc: "Download clean, production-grade Expo & React Native code. No lock-in — it's your codebase.",
     icon: "https://framerusercontent.com/images/meHjODl19qK4JQ7uwyySf17JhZE.svg",
   },
   {
-    title: "Provide AI solutions",
-    desc: "Launch quickly with institutional-grade AML software — without the lengthy setup or headache.",
+    title: "Backend generation",
+    desc: "Evermade scaffolds your API routes, auth layer, and database schema — not just the UI.",
     icon: "https://framerusercontent.com/images/9tcsS4B1cNBMQQRgRJS7vTDPY4.svg",
   },
 ];
@@ -43,10 +43,10 @@ export default function FeaturesGrid() {
           style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 20, textAlign: "center" }}
         >
           <h2 style={{ margin: 0, maxWidth: 740, fontSize: "clamp(28px,4vw,48px)", fontWeight: 600, letterSpacing: "-0.02em", lineHeight: "1.15em", color: "#fff" }}>
-            Features for a faster workflow
+            Everything you need to ship a real app
           </h2>
           <p style={{ margin: 0, maxWidth: 740, fontSize: 18, fontWeight: 400, opacity: 0.6, color: "#fff" }}>
-            A web developer who&apos;s passionate about performance, security, and great user experience. From concept to clean code passionate about performance
+            From first prompt to App Store listing — Evermade handles the entire stack so you can focus on your vision.
           </p>
         </motion.div>
 
@@ -79,14 +79,14 @@ export default function FeaturesGrid() {
             <div style={{ display: "flex", flexDirection: "column", gap: 36 }}>
               <div>
                 <h4 style={{ margin: "0 0 12px", fontSize: 24, fontWeight: 500, letterSpacing: "-0.02em", color: "#fff" }}>
-                  Get started with building blocks for screening
+                  Design-to-code, at the speed of thought
                 </h4>
                 <p style={{ margin: 0, fontSize: 14, opacity: 0.6, color: "#fff", maxWidth: 211 }}>
-                  Build the system you need to minimize risk with modular anti-money laundering systems
+                  Describe your app once. Evermade generates every screen, every component, every flow — production-ready.
                 </p>
               </div>
             </div>
-            <a href="/pricing" style={{
+            <a href="/login?next=%2Fdashboard" style={{
               display: "inline-flex", alignSelf: "flex-start",
               padding: "16px 40px", borderRadius: 100,
               border: "1px solid rgba(255,255,255,0.1)",
@@ -94,7 +94,7 @@ export default function FeaturesGrid() {
               boxShadow: "inset 2px 4px 16px 0px rgba(248,248,248,0.05)",
               fontSize: 18, fontWeight: 700, textTransform: "uppercase" as const, color: "#fff", textDecoration: "none",
             }}>
-              Try For Free
+              Build For Free
             </a>
           </div>
 

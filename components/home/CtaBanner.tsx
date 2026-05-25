@@ -45,18 +45,18 @@ export default function CtaBanner() {
           style={{ maxWidth: 660, display: "flex", flexDirection: "column", alignItems: "center", gap: 40, textAlign: "center" }}
         >
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
-            <span style={glassBadge}>Smarter Workflow. Better Words</span>
+            <span style={glassBadge}>No code required</span>
             <h1 style={{ margin: 0, fontSize: "clamp(32px,5vw,62px)", fontWeight: 600, letterSpacing: "-0.02em", color: "#fff", lineHeight: "1.1em" }}>
-              Boost creativity.<br />Maximize efficiency.
+              Your app idea<br />deserves to exist.
             </h1>
             <p style={{ margin: 0, fontSize: 18, opacity: 0.6, color: "#fff" }}>
-              A web developer who&apos;s passionate about performance, security, and great user experience. From concept to clean code
+              Stop waiting for a developer. Describe it, build it, ship it — all in one place.
             </p>
           </div>
 
           <div style={{ display: "flex", gap: 30, flexWrap: "wrap", justifyContent: "center" }}>
-            <a href="/contact" style={btnPrimary}>Start for free</a>
-            <a href="/pricing" style={btnGlass}>Get a Plan</a>
+            <a href="/signup?next=%2Fdashboard" style={btnPrimary}>Start building for free</a>
+            <a href="/login?next=%2Fdashboard" style={btnGlass}>View pricing</a>
           </div>
         </motion.div>
       </div>

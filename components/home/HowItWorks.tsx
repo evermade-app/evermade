@@ -14,11 +14,11 @@ const glassBadge: React.CSSProperties = {
 const STEPS = [
   {
     badge: "Step 001",
-    title: "Choose Your Workflow",
-    desc: "Defend against both common and rare threats with our ready-to-use rules",
+    title: "Describe your app",
+    desc: "Type your idea in plain English. The more detail you give, the better the result. No wireframes, no specs — just words.",
     iconContent: (
-      <svg viewBox="0 0 21 23" width="21" height="23" fill="none">
-        <text x="2" y="18" fill="white" fontFamily="Inter, sans-serif" fontSize="13" fontWeight="700">XY</text>
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
       </svg>
     ),
     iconStyle: {
@@ -29,12 +29,11 @@ const STEPS = [
   },
   {
     badge: "Step 002",
-    title: "Get Connected",
-    desc: "Defend against both common and rare threats with our ready-to-use rules real-time.",
+    title: "AI builds it instantly",
+    desc: "Evermade generates every screen, navigation flow, and component — powered by Claude 4, GPT-5, or Gemini. Your choice.",
     iconContent: (
-      <svg viewBox="0 0 20 20" width="20" height="20" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round">
-        <path d="M8 12l-3 3a2.5 2.5 0 003.5 3.5l3-3M12 8l3-3a2.5 2.5 0 00-3.5-3.5L8 5" />
-        <line x1="8" y1="12" x2="12" y2="8" />
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
       </svg>
     ),
     iconStyle: {
@@ -46,11 +45,11 @@ const STEPS = [
   },
   {
     badge: "Step 003",
-    title: "Start Creating",
-    desc: "Defend against both common and rare threats with our ready-to-use rules — be ready in real-time.",
+    title: "Ship to the world",
+    desc: "Export clean React Native code, or publish directly to the App Store and Google Play — straight from inside Evermade.",
     iconContent: (
-      <svg viewBox="0 0 26 26" width="26" height="26" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M13 2l2.4 7.4H23l-6.2 4.5 2.4 7.4L13 17l-6.2 4.3 2.4-7.4L3 9.4h7.6L13 2z" />
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 19V5M5 12l7-7 7 7" />
       </svg>
     ),
     iconStyle: {
@@ -80,7 +79,7 @@ export default function HowItWorks() {
             transition={spring}
             style={{ margin: 0, fontSize: "clamp(32px,5vw,62px)", fontWeight: 600, letterSpacing: "-0.02em", textAlign: "center", color: "#fff" }}
           >
-            How We Make It Happen
+            From idea to App Store in 3 steps
           </motion.h1>
 
           <div style={{ display: "flex", flexDirection: "row", gap: 20, width: "100%", maxWidth: 1100, flexWrap: "wrap" }}>

@@ -22,7 +22,7 @@ export default function LogosTicker() {
           transition={spring}
           style={{ margin: 0, fontSize: 18, fontWeight: 500, letterSpacing: "-0.02em", lineHeight: "1.5em", opacity: 0.6, textAlign: "center", color: "#fff" }}
         >
-          Join product and engineering leaders on the cutting edge
+          Trusted by founders building the next generation of mobile apps
         </motion.p>
         <motion.div
           initial={{ opacity: 0, y: 60 }}

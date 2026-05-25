@@ -5,18 +5,18 @@ const spring = { type: "spring" as const, damping: 80, stiffness: 400 };
 
 const BLOGS = [
   {
-    date: "Jul 10, 2025",
-    title: "A web developer who's passionate about great user experience.",
+    date: "May 10, 2026",
+    title: "How to go from idea to App Store in under 48 hours with Evermade.",
     img: "https://framerusercontent.com/images/mCctIXPf7pufEP5bkV8dRpLPTg.png",
   },
   {
-    date: "Jul 23, 2025",
-    title: "Passionate about building websites users love to interact with.",
+    date: "Apr 23, 2026",
+    title: "Why non-technical founders are becoming the best app builders.",
     img: "https://framerusercontent.com/images/DZNAFF2intk8tEIPC0EqKmsQk8.png",
   },
   {
-    date: "Aug 11, 2025",
-    title: "Focused on designing web experiences that feel effortless and engaging.",
+    date: "Mar 11, 2026",
+    title: "Claude vs GPT vs Gemini: which AI builds the best mobile UI?",
     img: "https://framerusercontent.com/images/jC7w5zq28JscXoE0R8xV0rDAQgo.png",
   },
 ];
@@ -35,10 +35,10 @@ export default function BlogSection() {
           style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 20, textAlign: "center" }}
         >
           <h2 style={{ margin: 0, maxWidth: 710, fontSize: "clamp(28px,4vw,48px)", fontWeight: 600, letterSpacing: "-0.02em", color: "#fff" }}>
-            Read our latest blogs
+            From the Evermade blog
           </h2>
           <p style={{ margin: 0, maxWidth: 710, fontSize: 18, opacity: 0.6, color: "#fff" }}>
-            A web developer who&apos;s passionate about performance, security, and great user experience. From concept to clean code passionate about performance
+            Tips, tutorials, and inspiration for the next generation of mobile app builders.
           </p>
         </motion.div>
 

@@ -30,13 +30,13 @@ export default function IntegrationsSection() {
         >
           <div style={{ maxWidth: 545, display: "flex", flexDirection: "column", alignItems: "center", gap: 20, textAlign: "center" }}>
             <h2 style={{ margin: 0, fontSize: "clamp(28px,4vw,48px)", fontWeight: 600, letterSpacing: "-0.02em", color: "#fff" }}>
-              One platform, endless integrations
+              Works with the tools you already love
             </h2>
             <p style={{ margin: 0, fontSize: 18, opacity: 0.6, color: "#fff" }}>
-              A web developer who&apos;s passionate about performance, security, and great user experience. From concept to clean code
+              Stripe for payments. Supabase for your database. Expo for deployment. Evermade connects to your existing stack out of the box.
             </p>
           </div>
-          <a href="/integrations" style={btnPrimary}>Explore Now</a>
+          <a href="/login?next=%2Fdashboard" style={btnPrimary}>Start Building</a>
         </motion.div>
 
         <motion.div

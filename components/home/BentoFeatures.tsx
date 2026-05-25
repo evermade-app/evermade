@@ -28,18 +28,18 @@ const cardStyle = { border: cardBorder, borderRadius: 30, overflow: "hidden", po
 
 const subCards = [
   {
-    title: "Monthly workforce insights",
-    desc: "Make instant, informed decisions on global payments across 150 currencies.",
+    title: "Export-ready React Native code",
+    desc: "Every app Evermade builds is clean, runnable Expo code. Download it, customize it, own it.",
     img: "https://framerusercontent.com/images/fRmxCWNGxkqHwQKj5hN30FpjL2o.png",
   },
   {
-    title: "HR insights dashboard",
-    desc: "Monitor international transactions and execute decisions instantly across.",
+    title: "AI chat editor",
+    desc: "Refine any screen with a single message. Change layouts, colors, flows — no drag-and-drop needed.",
     img: "https://framerusercontent.com/images/iocEIULAiRc8pGoEhUa8unMkr4.png",
   },
   {
-    title: "Reformat any text",
-    desc: "Get real-time control over cross-border payments in 150+ currencies.",
+    title: "Publish to the App Store",
+    desc: "Ship to iOS and Android directly from Evermade. One click, both stores.",
     img: "https://framerusercontent.com/images/IFI6pJYHgOVlSmzykwQMVviWCAU.png",
   },
 ];
@@ -106,16 +106,16 @@ export default function BentoFeatures() {
           style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 24 }}
         >
           <h2 style={{ margin: 0, maxWidth: 600, fontSize: "clamp(28px,4vw,48px)", fontWeight: 600, letterSpacing: "-0.02em", lineHeight: "1.15em", color: "#fff" }}>
-            Where Innovation Meets the Written Word
+            Build any mobile app. No code. No limits.
           </h2>
-          <a href="/contact" style={{
+          <a href="/login?next=%2Fdashboard" style={{
             display: "inline-flex", alignItems: "center",
             padding: "16px 40px", borderRadius: 100, border: "1px solid rgba(255,255,255,0.1)",
             background: "rgba(248,248,248,0.05)", backdropFilter: "blur(69px)", WebkitBackdropFilter: "blur(69px)",
             boxShadow: "inset 2px 4px 16px 0px rgba(248,248,248,0.05)",
             fontSize: 18, fontWeight: 700, textTransform: "uppercase" as const, color: "#fff", textDecoration: "none",
           }}>
-            Learn More
+            Start Building
           </a>
         </motion.div>
 
@@ -131,10 +131,10 @@ export default function BentoFeatures() {
           <div style={{ ...cardStyle, maxWidth: 555, backgroundImage: `url(${BG_CARD})`, backgroundSize: "cover", backgroundPosition: "center", minWidth: 280 }}>
             <div style={{ padding: "43px 32px 0", display: "flex", flexDirection: "column", gap: 16, marginBottom: 99 }}>
               <h4 style={{ margin: 0, fontSize: 24, fontWeight: 500, letterSpacing: "-0.02em", color: "#fff" }}>
-                From Voice to Words — Instantly
+                From idea to app in seconds
               </h4>
               <p style={{ margin: 0, fontSize: 16, fontWeight: 400, opacity: 0.6, color: "#fff" }}>
-                A web developer who&apos;s passionate about performance, security, and great user experience. From concept to clean code
+                Describe your app in plain English. Evermade generates every screen, every navigation flow, every component — instantly.
               </p>
             </div>
             <HorizontalTicker />
@@ -145,10 +145,10 @@ export default function BentoFeatures() {
           <div style={{ ...cardStyle, maxWidth: 635, backgroundImage: `url(${BG_CARD})`, backgroundSize: "cover", backgroundPosition: "center", minWidth: 280 }}>
             <div style={{ padding: "43px 32px 0", display: "flex", flexDirection: "column", gap: 16, marginBottom: 84 }}>
               <h4 style={{ margin: 0, fontSize: 24, fontWeight: 500, letterSpacing: "-0.02em", color: "#fff" }}>
-                Integrate Seamlessly with 40+ Popular Apps
+                Powered by the world&apos;s best AI models
               </h4>
               <p style={{ margin: 0, fontSize: 16, fontWeight: 400, opacity: 0.6, color: "#fff" }}>
-                Track cross-border payment senders and receivers, making real-time decisions across 150+ currencies.
+                Claude 4, GPT-5, Gemini — choose the model that fits your app. Switch anytime. Always frontier-quality output.
               </p>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: "0 0 37px" }}>

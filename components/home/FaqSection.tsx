@@ -6,24 +6,24 @@ const spring = { type: "spring" as const, damping: 80, stiffness: 400 };
 
 const FAQS = [
   {
-    q: "What are the key features of Evermade's app builder?",
-    a: "A web developer who's passionate about performance, security, and great user experience. From concept to clean code passionate about performance",
+    q: "What exactly is Evermade?",
+    a: "Evermade is an AI-powered mobile app builder. You describe your app idea in plain English — Evermade generates every screen, every navigation flow, and every component as clean, production-ready React Native code. No wireframes, no developers, no months of waiting.",
   },
   {
-    q: "What types of apps can I build with Evermade?",
-    a: "Evermade supports a wide range of app types including marketplaces, dashboards, social apps, and more — all generated from a simple text description.",
+    q: "Do I need to know how to code?",
+    a: "Not at all. Just describe what you want to build. If you do know how to code, you can export the full Expo source and customize it however you like — Evermade never locks you in.",
   },
   {
-    q: "How can I get started with Evermade?",
-    a: "Simply describe your app idea in the prompt on the homepage, click Generate, and Evermade will build your app screens instantly.",
+    q: "What kind of apps can I build?",
+    a: "Anything: marketplaces, social apps, fitness trackers, productivity tools, fintech dashboards, e-commerce stores, SaaS platforms, and more. If you can describe it, Evermade can build it.",
   },
   {
-    q: "How does Evermade's AI generation work?",
-    a: "Evermade uses a combination of advanced AI models to generate complete, functional app screens from your description, including layouts, flows, and interactions.",
+    q: "Which AI models does Evermade use?",
+    a: "You choose: Claude 4 Sonnet, Claude 4 Opus, GPT-5, or Gemini. Each model has different strengths. EverMax subscribers get priority access to the most powerful models.",
   },
   {
-    q: "Do you offer support for multiple programming languages?",
-    a: "Evermade generates Expo/React Native compatible code, making it easy to deploy to both iOS and Android from a single codebase.",
+    q: "Can I publish directly to the App Store?",
+    a: "Yes. EverMax subscribers can publish directly to the Apple App Store and Google Play from inside Evermade. Or export the code at any time and publish yourself — you own everything.",
   },
 ];
 
@@ -41,7 +41,7 @@ export default function FaqSection() {
           transition={spring}
           style={{ margin: 0, maxWidth: 1000, fontSize: "clamp(28px,4vw,48px)", fontWeight: 600, letterSpacing: "-0.02em", textAlign: "center", color: "#fff" }}
         >
-          All your questions. Answered
+          Everything you need to know.
         </motion.h2>
 
         <motion.div
